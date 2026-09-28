@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+/* Shows a red bar at the top of the page if any JavaScript error stops the page (e.g. a missing quote after editing) */
+window.addEventListener('error',function(e){
+  if(document.getElementById('jsErrBanner')) return;
+  var d=document.createElement('div'); d.id='jsErrBanner';
+  d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99999;background:#c0392b;color:#fff;padding:10px 14px;font:14px/1.5 Segoe UI,Arial,sans-serif;direction:ltr;text-align:left';
+  d.textContent='\u26A0 Page error: '+(e.message||'unknown')+(e.lineno?' (line '+e.lineno+')':'')+' \u2014 check the last change you made in this file.';
+  (document.body||document.documentElement).appendChild(d);
+});
+</script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Labor Sheet &amp; Partograph - Smart Scenario Evaluation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --primary:#2e7d6b; --primary-dark:#1f5a4e; --accent:#e08e45; --bg:#f4f7f6;
+  --card:#ffffff; --border:#dde5e2; --text:#233; --muted:#66756f; --danger:#c0392b;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text);}
+.hidden{display:none !important;}
+/* Welcome */
+#welcome{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--primary-dark),var(--primary) 60%,#3fa38a);padding:20px;}
+.welcome-card{background:var(--card);border-radius:16px;padding:40px 36px;max-width:480px;width:100%;
+  box-shadow:0 20px 50px rgba(0,0,0,.25);text-align:center;}
+.welcome-card h1{color:var(--primary-dark);margin-bottom:6px;font-size:1.6rem;}
+.welcome-card p.sub{color:var(--muted);margin-top:0;margin-bottom:26px;}
+.welcome-card input{width:100%;padding:12px 14px;margin-bottom:14px;border:1px solid var(--border);
+  border-radius:8px;font-size:1rem;}
+.welcome-card button{width:100%;padding:13px;border:none;border-radius:8px;background:var(--primary);
+  color:#fff;font-size:1.05rem;font-weight:600;cursor:pointer;transition:.2s;}
+.welcome-card button:hover{background:var(--primary-dark);}
+.welcome-note{font-size:.82rem;color:var(--muted);margin-top:16px;line-height:1.5;}
+/* Top bar */
+#topbar{position:sticky;top:0;z-index:50;background:var(--primary-dark);color:#fff;padding:12px 20px;
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+#topbar .who{font-size:.92rem;}
+#topbar .who b{color:#ffe3b8;}
+#topbar button{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;
+  padding:7px 12px;border-radius:6px;cursor:pointer;font-size:.85rem;}
+#topbar button:hover{background:rgba(255,255,255,.3);}
+/* Container */
+#appContainer{max-width:960px;margin:0 auto;padding:24px 16px 100px;}
+.section-card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:20px 22px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.04);}
+.section-card h2{color:var(--primary-dark);border-bottom:2px solid var(--primary);
+  padding-bottom:8px;margin-top:0;font-size:1.15rem;}
+.block-subtitle{font-weight:600;color:var(--accent);margin:14px 0 8px;font-size:.95rem;}
+.qa-row{margin-bottom:12px;}
+.qa-row label.qa-label{display:block;font-weight:600;font-size:.92rem;margin-bottom:5px;color:#334;}
+.qa-input input[type=text],.qa-input textarea{width:100%;padding:9px 10px;border:1px solid var(--border);
+  border-radius:6px;font-size:.94rem;font-family:inherit;}
+.qa-input textarea{min-height:60px;resize:vertical;}
+.qa-input input::placeholder,.qa-input textarea::placeholder{color:#9aa5a0;font-style:italic;}
+.yn-group{display:flex;gap:18px;align-items:center;}
+.yn-group label{font-weight:400;display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.9rem;}
+.yn-duration{margin-top:6px;}
+.checklist{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 14px;}
+.checklist label{font-weight:400;font-size:.88rem;display:flex;gap:6px;align-items:flex-start;cursor:pointer;}
+/* Care plan table */
+table.careplan{width:100%;border-collapse:collapse;margin-top:8px;}
+table.careplan th{background:var(--primary);color:#fff;padding:8px;font-size:.88rem;text-align:left;}
+table.careplan td{border:1px solid var(--border);padding:6px;vertical-align:top;}
+table.careplan textarea{width:100%;border:none;min-height:70px;font-family:inherit;font-size:.88rem;resize:vertical;}
+table.careplan textarea:focus{outline:1px solid var(--primary);}
+#addRowBtn{margin-top:10px;background:var(--accent);color:#fff;border:none;padding:8px 14px;
+  border-radius:6px;cursor:pointer;font-size:.85rem;}
+/* Health education categories */
+.he-cat{border-left:4px solid var(--accent);background:#fbf6ee;padding:12px 14px;border-radius:8px;margin-bottom:14px;}
+.he-cat h3{margin:0 0 8px;color:var(--accent);font-size:1rem;}
+.he-cat textarea{width:100%;min-height:70px;border:1px solid var(--border);border-radius:6px;padding:8px;font-family:inherit;}
+/* Action bar */
+#actionBar{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--border);
+  padding:14px 16px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;
+  box-shadow:0 -4px 14px rgba(0,0,0,.06);}
+#actionBar button{padding:11px 18px;border:none;border-radius:8px;font-weight:600;cursor:pointer;
+  font-size:.92rem;color:#fff;}
+#btnFinish{background:var(--primary);}
+#btnScore{background:#3f7cac;}
+#btnStats{background:#8e6bbf;}
+#btnExport{background:var(--accent);}
+#actionBar button:disabled{opacity:.5;cursor:not-allowed;}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;
+  justify-content:center;z-index:100;padding:16px;}
+.modal-box{background:#fff;border-radius:12px;padding:26px 28px;max-width:520px;width:100%;
+  max-height:85vh;overflow-y:auto;}
+.modal-box h2{margin-top:0;color:var(--primary-dark);}
+.modal-box button.close{margin-top:16px;background:var(--primary);color:#fff;border:none;
+  padding:9px 16px;border-radius:6px;cursor:pointer;}
+.stat-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--border);font-size:.9rem;}
+.score-big{font-size:2.6rem;font-weight:700;color:var(--primary);text-align:center;margin:10px 0;}
+/* Faculty */
+#facultyBtn{position:fixed;top:10px;right:14px;z-index:60;background:#2c3e50;color:#fff;
+  border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:.82rem;opacity:.9;}
+table.records{width:100%;border-collapse:collapse;margin-top:10px;font-size:.85rem;}
+table.records th,table.records td{border:1px solid var(--border);padding:6px 8px;text-align:left;}
+table.records th{background:var(--primary);color:#fff;}
+.small-btn{padding:5px 9px;font-size:.78rem;border:none;border-radius:5px;background:var(--primary);color:#fff;cursor:pointer;}
+.pg-note{color:var(--muted);font-size:.88rem;margin-top:-4px;}
+.pg-head{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 12px;margin-bottom:12px;}
+.pg-head label{font-size:.78rem;font-weight:600;color:#334;display:flex;flex-direction:column;gap:3px;}
+.pg-head input{padding:7px 8px;border:1px solid var(--border);border-radius:6px;font-size:.88rem;}
+#pgTools{display:flex;flex-wrap:wrap;gap:8px;background:#fff;padding:8px;border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08);z-index:40;}
+@media(min-width:900px){#pgTools{position:sticky;top:52px;}}
+.pgg{display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding-right:8px;border-right:1px dashed var(--border);}
+.pgg b{font-size:.66rem;text-transform:uppercase;color:var(--muted);width:100%;}
+#pgTools button{padding:5px 9px;border:1px solid var(--border);background:#f7faf9;border-radius:6px;cursor:pointer;font-size:.8rem;display:inline-flex;align-items:center;gap:4px;}
+#pgTools button.on{background:var(--primary);color:#fff;border-color:var(--primary-dark);}
+.glyph.x{color:#b71c1c;font-weight:800;}.glyph.o{color:#0d47a1;font-weight:800;}
+#pgTools button.on .glyph{color:#fff;}
+i.sw{width:14px;height:14px;border:1px solid #333;display:inline-block;border-radius:3px;}
+i.sw.dot{background:radial-gradient(#333 1.3px,transparent 1.6px) 0 0/5px 5px #fff;}
+i.sw.hat{background:repeating-linear-gradient(45deg,#333 0 2px,#fff 2px 5px);}
+i.sw.sol{background:#333;}
+#pgReadout{margin:8px 0;padding:6px 10px;background:#fbf6ee;border-left:4px solid var(--accent);font-size:.84rem;border-radius:4px;min-height:1.2em;}
+#pgWrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px;}
+</style>
+</head>
+<body>
+<script>
+/* ============ SETTINGS – edit ONLY the text between the quotes, keep the quotes ' ' and the semicolon ; ============ */
+const SCRIPT_URL='https://script.google.com/macros/s/AKfycbyZg-ZjLAd_Unnuwj_97saC5T71xlL_Y9U5YjIWx57fi51vz0vDMchv-7M_FLYnegpH-A/exec';   // the Web app URL that ends with /exec
+const SHEET_NAME='Sheet1';   // results tab name in the Google Sheet (same as RESULTS_TAB in Code.gs)
+const REQUIRE_SERVER_CHECK=false;
+/* ===================================================================================================== */
+if(!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(SCRIPT_URL)) window.addEventListener('DOMContentLoaded',function(){
+  var d=document.createElement('div'); d.style.cssText='background:#e08e45;color:#fff;padding:8px 12px;font:13px Segoe UI,Arial,sans-serif;text-align:center';
+  d.textContent='Warning: SCRIPT_URL does not look like a valid Apps Script /exec link.'; document.body.insertBefore(d,document.body.firstChild);
+});
+</script>
+
+
+<!-- FACULTY LOGIN BUTTON -->
+<button id="facultyBtn" onclick="facultyLogin()">Faculty Login</button>
+
+<!-- WELCOME SCREEN -->
+<div id="welcome">
+  <div class="welcome-card">
+    <h1>Labor Sheet &amp; Partograph</h1>
+    <p class="sub">Obstetric Nursing – Labor Student Worksheet</p>
+    <input type="text" id="studentName" placeholder="Enter your full name">
+    <input type="text" id="studentGroup" placeholder="Enter your group number">
+    <button onclick="startSheet()">Start Sheet</button>
+    <div class="welcome-note">Fill out the sheet and plot the partograph based on Mrs. Sarah Mahmoud Ali's scenario. Evaluation is strictly based on clinical accuracy and scenario matching.<br>Answers must be written in <b>English only</b>. Write <b>None</b> for any item that is not mentioned in the scenario. Once you enter, you cannot enter again without the supervisor's permission.</div>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div id="topbar" class="hidden">
+  <div class="who">Student: <b id="topName"></b> &nbsp;|&nbsp; Group: <b id="topGroup"></b></div>
+  <div>Date: <span id="topDate"></span> &nbsp;|&nbsp; Progress: <b id="topProg">0%</b></div>
+</div>
+
+<!-- MAIN APP -->
+<div id="appContainer" class="hidden"></div>
+
+<!-- ACTION BAR -->
+<div id="actionBar" class="hidden">
+  <button id="btnFinish" onclick="finishSheet()">✔ Finish &amp; Submit</button>
+  <button id="btnScore" onclick="showScore()" disabled title="Available after you submit">📊 Clinical Evaluation &amp; Score</button>
+  <button id="btnStats" onclick="showStats()">📈 Statistics</button>
+  <button id="btnExport" onclick="exportPDF()">⬇ Export as PDF</button>
+</div>
+
+<script>
+/* ---------------- DATA MODEL ---------------- */
+const tf=l=>({type:'text',label:l}), yn=l=>({type:'yesno',label:l});
+const sections = [
+{title:"1. Personal Data", blocks:[{kind:'fields', fields:[tf('Mother name'),tf('Age'),tf('Occupation'),tf('Reason for admission')]}]},
+{title:"2. Medical History", blocks:[{kind:'fields', fields:[tf('Diabetes mellitus (D.M)'),tf('Hypertension'),tf('Kidney disease'),tf('Heart disease'),tf('Anemia'),tf('Others (specify)')]}]},
+{title:"3. Family History", blocks:[{kind:'fields', fields:[tf('Diabetes mellitus (D.M)'),tf('Hypertension'),tf('Others (specify)')]}]},
+{title:"4. Obstetric History", blocks:[{kind:'fields', fields:['Gravida','Parity','Abortion','Still birth','Low birth weight','Living children','Age of the youngest child'].map(l=>tf(l))}]},
+{title:"5. Previous Complications", blocks:[{kind:'fields', fields:['Antepartum hemorrhage','Toxemia: pre-eclampsia','Eclampsia','Polyhydramnios','Oligohydramnios','Ectopic pregnancy'].map(l=>yn(l))}]},
+{title:"6. Abnormal Delivery", blocks:[{kind:'fields', fields:[...['Cesarean section','Precipitate labor','Prolonged labor','Post-partum infection','Post-partum hemorrhage','Neonatal jaundice','Neonatal death (within one week)'].map(l=>yn(l)),tf('Others (specify)')]}]},
+{title:"7. History of Present Pregnancy", blocks:[
+  {kind:'fields', fields:[tf('L.M.P'),tf('E.D.D')]},
+  {kind:'checklist', subtitle:"Mother's complaints", options:['Vomiting','Dizziness','Headache','Abdominal pain','Dyspnea','Excessive discharge','Backache','Varicose veins','Heart burn','Blurring of vision']},
+  {kind:'fields', fields:[tf('Bleeding: before 20 weeks'),tf('Bleeding: after 20 weeks'),tf('Edema: lower limbs'),tf('Edema: upper limbs'),tf('Toxemia in present pregnancy: pre-eclampsia'),tf('Eclampsia in present pregnancy'),tf('Other complaints (specify)')]}
+]},
+{title:"8. General Examination", blocks:[
+  {kind:'checklist', subtitle:'General appearance', options:['Healthy','Pale','Flushed','Tired']},
+  {kind:'fields', subtitle:'Measurements & vital signs', fields:[tf('Weight (kg)'),tf('Height (cm)'),tf('Blood pressure (mmHg)'),tf('Pulse (beats/min)'),tf('Temperature (°C)')]},
+  {kind:'fields', subtitle:'Uterine contraction', fields:[tf('Uterine contraction – frequency per 10 minutes')]},
+  {kind:'radio', label:'Uterine contraction severity', options:['Mild','Moderate','Severe']}
+]},
+{title:"9. Investigation", blocks:[
+  {kind:'fields', subtitle:'Urine', fields:[tf('Sugar'),tf('Ketones'),tf('Protein')]},
+  {kind:'fields', subtitle:'Blood', fields:[tf('Hemoglobin (g/dl)'),tf('Blood group'),tf('Rh factor'),tf('Wasserman')]}
+]}
+];
+
+const healthEdCategories = [
+  {label:'First Stage of Labor (Dilatation)'},
+  {label:'Second Stage of Labor (Expulsion of the Fetus)'},
+  {label:'Third Stage of Labor (Delivery of the Placenta)'},
+  {label:'Fourth Stage of Labor (Recovery)'}
+];
+
+
+/* ---------------- RENDER ---------------- */
+const container = document.getElementById('appContainer');
+let startTime = null;
+let finished = false;
+
+function fieldHTML(f){
+  if(f.type==='text'){
+    return `<div class="qa-row"><label class="qa-label">${f.label}</label>
+      <div class="qa-input"><input type="text" dir="auto" placeholder="Write your answer (write None if not mentioned)"></div></div>`;
+  }
+  if(f.type==='yesno'){
+    const n='yn_'+Math.random().toString(36).slice(2,9);
+    return `<div class="qa-row"><label class="qa-label">${f.label}</label>
+      <div class="qa-input yn-group" data-name="${n}">
+        <label><input type="radio" name="${n}" value="Yes"> Yes</label>
+        <label><input type="radio" name="${n}" value="No"> No</label>
+      </div></div>`;
+  }
+  if(f.type==='yesnoDuration'){
+    const n='ynd_'+Math.random().toString(36).slice(2,9);
+    return `<div class="qa-row"><label class="qa-label">${f.label}</label>
+      <div class="qa-input">
+        <div class="yn-group" data-name="${n}">
+          <label><input type="radio" name="${n}" value="Yes"> Yes</label>
+          <label><input type="radio" name="${n}" value="No"> No</label>
+        </div>
+        <div class="yn-duration"><input type="text" dir="auto" placeholder="Write duration here (if applicable)"></div>
+      </div></div>`;
+  }
+}
+
+function checklistHTML(block){
+  const n='cl_'+Math.random().toString(36).slice(2,9);
+  const opts = block.options.map(o=>`<label><input type="checkbox" name="${n}" value="${o}">${o}</label>`).join('');
+  return `<div class="qa-row"><label class="qa-label">${block.subtitle}</label>
+    <div class="qa-input checklist" data-name="${n}">${opts}</div></div>`;
+}
+
+function radioBlockHTML(block){
+  const n='rd_'+Math.random().toString(36).slice(2,9);
+  const opts = block.options.map(o=>`<label style="font-weight:400;display:block;margin:3px 0;"><input type="radio" name="${n}" value="${o}"> ${o}</label>`).join('');
+  return `<div class="qa-row"><label class="qa-label">${block.label}</label>
+    <div class="qa-input" data-name="${n}">${opts}</div></div>`;
+}
+
+function renderForm(){
+  let html = '<div class="section-card" style="border-left:4px solid var(--accent)"><b>Instructions:</b> write in <b>English only</b>. For any text field that is <b>not mentioned in the scenario, write <u>None</u></b> (select <b>No</b> for Yes/No items). Do not leave fields blank.</div>';
+  sections.forEach(sec=>{
+    html += `<div class="section-card"><h2>${sec.title}</h2>`;
+    sec.blocks.forEach(block=>{
+      if(block.kind==='fields'){
+        if(block.subtitle) html += `<div class="block-subtitle">${block.subtitle}</div>`;
+        block.fields.forEach(f=> html += fieldHTML(f));
+      } else if(block.kind==='checklist'){
+        html += checklistHTML(block);
+      } else if(block.kind==='radio'){
+        html += radioBlockHTML(block);
+      }
+    });
+    html += `</div>`;
+  });
+
+  html += pgCardHTML();
+  // Nursing Care Plan
+  html += `<div class="section-card"><h2>11. Nursing Care Plan</h2>
+    <p class="pg-note">Write every nursing diagnosis as: <b>Problem</b> related to <b>cause</b> as evidenced by <b>data from the scenario</b>. Start with the priority problem.</p>
+    <table class="careplan" id="carePlanTable">
+      <thead><tr><th style="width:34%">Nursing Diagnosis</th><th style="width:33%">Goal</th><th style="width:33%">Interventions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button id="addRowBtn" onclick="addCareRow()">+ Add Row</button>
+  </div>`;
+
+  // Health Education
+  html += `<div class="section-card"><h2>12. Health Education</h2>
+    <p style="color:var(--muted);font-size:.88rem;margin-top:-4px;">Write your health education plan for the mother under each stage of labor below.</p>`;
+  healthEdCategories.forEach(c=>{
+    html += `<div class="he-cat"><h3>${c.label}</h3>
+      <textarea dir="auto" placeholder="Write your answer here"></textarea></div>`;
+  });
+  html += `</div>`;
+
+  container.innerHTML = html;
+  PG=newPG(); pgHist.length=0; initPG();
+  for(let i=0;i<4;i++) addCareRow();
+}
+
+function addCareRow(){
+  const tbody = document.querySelector('#carePlanTable tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><textarea dir="auto" placeholder="Problem r/t (cause) AEB (evidence from the scenario)"></textarea></td>
+    <td><textarea dir="auto" placeholder="Write the goal here"></textarea></td>
+    <td><textarea dir="auto" placeholder="Write the interventions here"></textarea></td>`;
+  tbody.appendChild(tr);
+}
+
+/* ---------------- START ---------------- */
+async function startSheet(){
+  const name = document.getElementById('studentName').value.trim();
+  const group = document.getElementById('studentGroup').value.trim();
+  if(!name || !group){ alert('Please enter your name and group number to start.'); return; }
+  if(AR.test(name+group)){ alert('Please use English letters only.'); return; }
+  if(getEntries().some(e=>e.key===entKey(name,group))){ alert('This student and group have already entered the sheet.\nPlease contact the supervisor to be allowed back in.'); return; }
+  if(startSheet.busy) return; startSheet.busy=true;
+  const sBtn=document.querySelector('.welcome-card button'); sBtn.disabled=true; sBtn.textContent='Checking…';
+  const srvRes=await srv({action:'claim',key:entKey(name,group),name,group});
+  sBtn.disabled=false; sBtn.textContent='Start Sheet'; startSheet.busy=false;
+  if(srvRes&&srvRes.ok===false){ alert('This student and group have already taken the sheet.\nOnly ONE attempt is allowed. Please contact the supervisor.'); return; }
+  if(!srvRes&&REQUIRE_SERVER_CHECK){ alert('Could not verify your entry. Check your internet connection and try again.'); return; }
+  window.studentInfo = {name, group, date: new Date().toLocaleDateString()};
+  { const en=getEntries(); en.push({key:entKey(name,group), name, group, date:new Date().toLocaleString(), submitted:false}); setEntries(en); }
+  document.getElementById('welcome').classList.add('hidden');
+  document.getElementById('facultyBtn').classList.add('hidden');
+  document.getElementById('topbar').classList.remove('hidden');
+  document.getElementById('appContainer').classList.remove('hidden');
+  document.getElementById('actionBar').classList.remove('hidden');
+  document.getElementById('topName').textContent = name;
+  document.getElementById('topGroup').textContent = group;
+  document.getElementById('topDate').textContent = window.studentInfo.date;
+  renderForm();
+  startTime = Date.now();
+  loadDraft(); updateProgress();
+}
+
+/* ---------------- DATA COLLECTION ---------------- */
+function collectData(){
+  const qaPairs = [];
+  document.querySelectorAll('.section-card').forEach(card=>{
+    const secTitle = card.querySelector('h2') ? card.querySelector('h2').textContent : '';
+    if(/^(10|11|12)\./.test(secTitle)) return;
+    card.querySelectorAll('.qa-row').forEach(row=>{
+      const label = row.querySelector('.qa-label').textContent;
+      let value = '';
+      const textInput = row.querySelector('.qa-input > input[type=text], .qa-input .yn-duration input[type=text]');
+      const radios = row.querySelectorAll('input[type=radio]');
+      const checks = row.querySelectorAll('input[type=checkbox]');
+      if(checks.length){
+        value = Array.from(checks).filter(c=>c.checked).map(c=>c.value).join(', ') || '(none selected)';
+      } else if(radios.length){
+        const sel = Array.from(radios).find(r=>r.checked);
+        value = sel ? sel.value : '(not answered)';
+        const durationInput = row.querySelector('.yn-duration input[type=text]');
+        if(durationInput && durationInput.value.trim()) value += ' – Duration: ' + durationInput.value.trim();
+      } else if(textInput){
+        value = textInput.value.trim() || '(not answered)';
+      }
+      qaPairs.push({section: secTitle, label, value});
+    });
+  });
+
+  const carePlan = [];
+  document.querySelectorAll('#carePlanTable tbody tr').forEach(tr=>{
+    const cells = tr.querySelectorAll('textarea');
+    const diag = cells[0].value.trim(), goal = cells[1].value.trim(), interv = cells[2].value.trim();
+    if(diag||goal||interv) carePlan.push({diag: diag||'-', goal: goal||'-', interv: interv||'-'});
+  });
+
+  const healthEd = [];
+  document.querySelectorAll('.he-cat').forEach(box=>{
+    const label = box.querySelector('h3').textContent;
+    const value = box.querySelector('textarea').value.trim() || '(not answered)';
+    healthEd.push({label, value});
+  });
+
+  return {qaPairs, carePlan, healthEd, pg:pgCollect()};
+}
+
+/* ---------------- FLEXIBLE SCENARIO EVALUATION (rule-based: no AI, no network) ----------------
+   Edit CFG to change weights. Add words to any list below to accept more student answers. */
+const CFG = { marks:{fixed:5, pg:5, care:5, he:5}   /* total 20: care plan 5 + health education 5 + rest of sheet 10 (main sheet 5 + partograph 5) */, carePlanMax:14, healthEdPerCategory:3, crossCredit:0.25, extraTickTolerance:2 };
+const norm = s => String(s||'').toLowerCase().replace(/oedema/g,'edema').replace(/anaemi/g,'anemi').replace(/haemo/g,'hemo').replace(/foet/g,'fet').replace(/caesar/g,'cesar').replace(/labour/g,'labor').replace(/toxaemia/g,'toxemia')
+  .replace(/[\u064B-\u065F\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+  .replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+  .replace(/[^a-z0-9\u0621-\u064A\/.,\s]/g,' ').replace(/\s+/g,' ');
+const lev1=(a,b)=>{ if(Math.abs(a.length-b.length)>1) return false; let i=0; while(i<a.length&&a[i]===b[i]) i++; if(i===a.length&&i===b.length) return true; return a.slice(i+1)===b.slice(i+1)||a.slice(i)===b.slice(i+1)||a.slice(i+1)===b.slice(i); };
+const has = (t,k) => { k=norm(k).trim(); if(k.length<=3 && /^[a-z0-9]+$/.test(k)) return new RegExp('\\b'+k+'\\b').test(t); if(t.includes(k)) return true; if(k.length<6||!/^[a-z]+$/.test(k)) return false; return t.split(' ').some(w=>w.length>=k.length-1&&(lev1(w.slice(0,k.length),k)||lev1(w.slice(0,k.length-1),k))); };
+const L = s => s.split('|');
+const cnt = (t,list) => list.filter(k=>has(t,k)).length;
+const nums = t => (t.replace(/(\d),(\d)/g,'$1.$2').match(/\d+(?:\.\d+)?/g)||[]).map(Number);
+const dateIs = (t,day,months,mn) => { const n=nums(t); return n.includes(day) && (months.some(m=>t.includes(m)) || n.includes(mn)); };
+const yes = t => /\b(yes|positive|present|done|previous|breech|had)\b|نعم|موجب|قيصر/.test(t);
+const no0 = t => (/\b(no|none|nil|zero|nothing|negative)\b|\b0\b/.test(t) || t.trim()==='لا' || t.includes('لا يوجد'));
+
+/* Fixed items: [label, check(normalizedText, rawText), optional section prefix] – each = 1 point */
+const NEGT=(t,r)=>/\bneg|\bnil\b|\bnone\b|absent|\bno\b|not detected|^\s*0\s*$/.test(t)||/^\s*[-–]\s*$/.test(r||'');
+const isNo=t=>/\bno\b/.test(t);
+const FIXED = [
+ ['Mother name', t=>has(t,'sarah')&&cnt(t,L('mahmoud|mahmood|mahmud'))>0&&has(t,'ali')],
+ ['Age', t=>nums(t).includes(27)],
+ ['Occupation', t=>cnt(t,L('housewife|house wife|homemaker|home maker'))>0],
+ ['Reason for admission', t=>cnt(t,L('contraction|labor|labour|pain'))>0],
+ ['Diabetes mellitus (D.M)', no0, '2.'],['Hypertension', no0, '2.'],['Kidney disease', no0],['Heart disease', no0],['Anemia', no0],
+ ['Diabetes mellitus (D.M)', no0, '3.'],['Hypertension', no0, '3.'],
+ ['Gravida', t=>nums(t).includes(3)||cnt(t,L('g3|third|three'))>0],
+ ['Parity', t=>nums(t).includes(2)||cnt(t,L('p2|two'))>0],
+ ['Abortion', no0, '4.'],['Still birth', no0],['Low birth weight', no0],
+ ['Living children', t=>nums(t).includes(2)||cnt(t,L('two'))>0],
+ ['Age of the youngest child', t=>nums(t).includes(4)||cnt(t,L('four'))>0],
+ ...['Antepartum hemorrhage','Toxemia: pre-eclampsia','Eclampsia','Polyhydramnios','Oligohydramnios','Ectopic pregnancy'].map(l=>[l,isNo,'5.']),
+ ...['Cesarean section','Precipitate labor','Prolonged labor','Post-partum infection','Post-partum hemorrhage','Neonatal jaundice','Neonatal death (within one week)'].map(l=>[l,isNo,'6.']),
+ ['L.M.P', t=>dateIs(t,20,L('dec|ديسمبر'),12)&&(nums(t).includes(2025)||nums(t).includes(25))],
+ ['E.D.D', t=>dateIs(t,27,L('sep|سبتمبر'),9)&&(nums(t).includes(2026)||nums(t).includes(26))],
+ ['Bleeding: before 20 weeks', no0],['Bleeding: after 20 weeks', no0],['Edema: lower limbs', no0],['Edema: upper limbs', no0],
+ ['Weight (kg)', t=>nums(t).includes(70)],['Height (cm)', t=>nums(t).includes(160)],
+ ['Blood pressure (mmHg)', t=>nums(t).includes(120)&&nums(t).includes(80)],
+ ['Pulse (beats/min)', t=>nums(t).includes(86)],['Temperature (°C)', t=>nums(t).includes(36.8)],
+ ['Uterine contraction – frequency per 10 minutes', t=>nums(t).includes(3)],
+ ['Uterine contraction severity', t=>/moderate/.test(t)],
+ ['Sugar', NEGT],['Ketones', NEGT],['Protein', NEGT],
+ ['Hemoglobin (g/dl)', t=>nums(t).includes(11.4)],
+ ['Blood group', t=>/\bo\b/.test(t)&&!/\b(ab|a|b)\b/.test(t)],
+ ['Rh factor', (t,r)=>/pos|\+/.test(String(r).toLowerCase())],
+ ['Wasserman', no0]
+];
+
+
+/* ================= GRADING ENGINE v2 (rule-based, no AI, no network) =================
+   Word-start matching + negation-aware clauses + synonym normalisation + wrong-advice detection.
+   To accept more student wording: add words to the '|' lists below (care plan: CARE_TOPICS, health education: HE_RUBRIC). */
+const escRe=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+const trans=(a,b)=>{ if(a.length!==b.length) return false; for(let i=0;i<a.length-1;i++){ if(a[i]!==b[i]) return a.slice(0,i)+a[i+1]+a[i]+a.slice(i+2)===b; } return false; };
+const near=(a,b)=>lev1(a,b)||trans(a,b);
+/* common abbreviations / spellings -> one canonical form (applied after norm) */
+const SYN=[
+ [/\bv\s?\/\s?e\b/g,'vaginal exam'],[/\bp\s?\/\s?v\b/g,'vaginal'],[/\bo2\b/g,'oxygen'],[/\bi\s?\/\s?o\b/g,'intake output'],[/\bv\s?\/\s?s\b|\bvs\b/g,'vital signs'],
+ [/\bebf\b/g,'exclusive breastfeeding'],[/\bkmc\b/g,'kangaroo skin'],[/\bc\s?\/\s?s\b|\bcs\b/g,'cesarean'],[/\bq\s?(\d+)\b/g,'every $1'],
+ [/\b(\d+)\s?(hrs?|hours?|h)\b/g,'$1 hour'],[/\b(\d+)\s?(mins?|minutes?)\b/g,'$1 minute'],[/\bbreast feed/g,'breastfeed'],[/\bskin to skin\b/g,'skin skin'],
+ [/\bepisiotomies\b/g,'episiotomy'],[/\bexaminations?\b/g,'exam'],[/\bcontractions\b/g,'contraction'],[/\bnpo\b/g,'nothing by mouth'],[/\bpethedine\b|\bmeperidine\b/g,'pethidine'],
+ [/\bgentle\b/g,'gentle'],[/\bde ?hydration\b/g,'dehydration'],[/\bmoulding\b/g,'molding'],[/\bpr(e)?mature rupture\b/g,'rupture']
+];
+const norm2=s=>SYN.reduce((t,[re,rep])=>t.replace(re,rep),norm(s));
+/* word-START match (so "cord" does not match "record"); short keys need a whole word; 1-typo tolerance for long single words */
+function findP(t,k){
+  k=norm2(k).trim(); if(!k) return -1;
+  const short=k.length<=3&&/^[a-z0-9]+$/.test(k);
+  const m=new RegExp('(^|\\s)'+escRe(k)+(short?'(?=\\s|$)':'')).exec(t);
+  if(m) return m.index+m[1].length;
+  if(short||k.length<6||!/^[a-z]+$/.test(k)) return -1;
+  let pos=0; for(const w of t.split(' ')){ if(w.length>=k.length-1&&(near(w.slice(0,k.length),k)||near(w.slice(0,k.length-1),k))) return pos; pos+=w.length+1; } return -1;
+}
+const cntP=(t,list)=>list.filter(k=>findP(t,k)>=0).length;
+/* negation cues (a cue within 5 words before the key cancels it, unless "use/give/encourage..." intervenes) */
+const CUE=/\b(no|not|never|avoid\w*|dont|don t|do not|does not|did not|without|refrain\w*|discourag\w*|cannot|can not|can t|should not|shouldn t|must not|mustn t|nor|neither|instead of|rather than|prohibit\w*|forbid\w*|contraindicat\w*)\b/g;
+const CUE2=/\b(minimi\w*|limit\w*|reduc\w*|decreas\w*|restrict\w*|less|fewer|stop\w*|prevent\w*)\b/g;
+function negatedAt(t,idx,wrong){
+  const head=t.slice(0,idx); let neg=false, m; const re=new RegExp(CUE.source+(wrong?'|'+CUE2.source.slice(0):''),'g');
+  while((m=re.exec(head))){ const between=head.slice(m.index+m[0].length).trim(); const n=between?between.split(' ').length:0;
+    if(n<=5&&!/\b(but|use|give|provide|encourage|apply|offer|allow|and then|instead)\b/.test(between)) neg=true; }
+  return neg;
+}
+const negatedAfter=(t,end)=>/^\s*(\w+\s+){0,4}(not|never|avoided|wrong|harmful|unsafe|contraindicated|dangerous|prohibited|forbidden|bad|incorrect|discouraged|not recommended)\b/.test(t.slice(end));
+/* split an answer into short clauses, normalised */
+const clauseSplit=raw=>String(raw||'').split(/[.;\n\r•·,:!?]+|\s[-–—]\s|\bbut\b|\bhowever\b|\bwhile\b/i).map(norm2).map(s=>s.trim()).filter(Boolean);
+/* concept = {k:[keys], re:[self-contained regex], all:[qualifiers], negOk:true if a negated mention still counts} */
+const C=(label,keys,o)=>Object.assign({label,k:keys?keys.split('|'):[]},o||{});
+function hitConcept(cl,c){
+  for(const t of cl){
+    if(c.re) for(const r of c.re){ if(r.test(t)) return true; }
+    for(const k of c.k){ const i=findP(t,k); if(i<0) continue;
+      if(c.all&&!c.all.some(a=>findP(t,a)>=0)) continue;
+      if(!c.negOk&&negatedAt(t,i)) continue; return true; }
+  }
+  return false;
+}
+/* wrong / unsafe statements: [label, regex, self]  (self = the regex already contains its own "avoid/stop" wording) */
+function wrongHits(cl,list){
+  const out=[];
+  list.forEach(([lab,re,self])=>{ if(cl.some(t=>{ const m=re.exec(t); if(!m) return false;
+      if(negatedAt(t,m.index,true)) return false; if(!self&&(CUE.test(m[0])||CUE2.test(m[0]))){ CUE.lastIndex=0; CUE2.lastIndex=0; return false; } CUE.lastIndex=0; CUE2.lastIndex=0;
+      return !negatedAfter(t,m.index+m[0].length); })) out.push(lab); });
+  return out;
+}
+const W_PUSH=['pushing before full dilatation',/\b(push|pushing|bear|bearing|strain\w*)\b\s*(down\s*)?\b(now|early|from the start|immediately|as soon as|whenever|at any time|before (full|complete|10|dilat)|without waiting)/];
+const W_PUSH2=['pushing before full dilatation',/\bpush\w*\b.{0,25}\b(before|without)\b.{0,20}\b(full|complete|10 ?cm|dilat|urge|waiting)/];
+const W_SUPINE=['lying supine / flat on the back in labor',/\b(supine|lie flat|lying flat|flat on (her |the |your )?back|on (her |the |your )?back)\b/];
+const W_ALL=[
+ ['fundal pressure (Kristeller)',/\b(fundal pressure|kristeller)\b/],
+ ['pressing the abdomen to push the baby/placenta out',/\bpress\w*\b.{0,15}\b(abdomen|fundus|uterus)\b.{0,25}\b(push|deliver|expel|baby|fetus|placenta)/],
+ ['ignoring the mother / her complaints',/\bignor\w*\b/],
+ ['stopping monitoring',/\b(stop|discontinu)\w*\b.{0,10}\b(monitor|observ|assess)/,1],
+ ['"no need" to monitor/report/check',/\bno need (to|for)\b.{0,15}\b(report|monitor|assess|follow|check|observe|inspect)/,1],
+ ['restricting oral fluids',/\b(restrict\w*|limit\w*|withhold\w*|reduc\w*|stop|no|avoid)\s+(her |the |oral |all )?(drinking|fluids?|water|oral intake)\b(?!.{0,25}\b(baby|newborn|infant)\b)/,1],
+ ['routine perineal shaving',/\bshav(e|ed|ing)\b/],
+ ['forceful cord pulling',/\b(pull|tug)\w*\b.{0,12}\bcord\b.{0,25}\b(hard|strong|forc|immediat|before separation|without contraction)/],
+ ['forcing the placenta out',/\bforc\w*\b.{0,15}\bplacenta\b|\bplacenta\b.{0,15}\bforc/],
+ ['holding urine / avoiding urination',/\b(hold|retain|withhold|resist)\w*\s+(her |the |your )?(urine|urinat\w*|bladder)\b|\b(avoid|not to|dont|don t|do not)\s+(urinat\w*|void\w*|pass urine)\b/,1],
+ ['discarding / avoiding colostrum',/\bcolostrum\b.{0,20}\b(discard|throw|bad|harm|dirty)\w*|\b(discard|throw|avoid)\w*\b.{0,10}\bcolostrum/,1],
+ ['giving water / sugar water / formula to the newborn',/\b(baby|newborn|infant)\b.{0,25}\b(sugar water|glucose water|honey|formula|prelacteal|anise|water)\b|\b(sugar water|glucose water|honey|formula|prelacteal|anise)\b.{0,25}\b(baby|newborn|infant)\b/],
+ ['bathing the newborn immediately',/\b(bath|bathe|bathing)\w*\b.{0,20}\b(immediate|right away|at once|straight away|first hour)/],
+ ['frequent vaginal examinations',/\b(frequent|repeated|multiple|many)\b.{0,10}vaginal exam|vaginal exam\w*.{0,30}\b(every (15|30) minute|every hour|hourly|frequent|repeated|many times|multiple times)/]
+];
+const HE_WRONG={
+ 'First Stage of Labor (Dilatation)':[W_PUSH,W_PUSH2,W_SUPINE,['strict bed rest all through labor',/\b(strict|complete|absolute|total) bed rest\b/]],
+ 'Second Stage of Labor (Expulsion of the Fetus)':[W_PUSH2,['pushing without contractions / non-stop',/\bpush\w*\b.{0,20}\b(all the time|continuous\w*|without (a )?contraction|between contraction|non ?stop)\b/],['pushing forcefully while the head is crowning',/\b(push|bear)\w*\b.{0,10}\b(hard|forcefully|strongly)\b.{0,25}\b(crown|head is|delivery of (the )?head)/]],
+ 'Third Stage of Labor (Delivery of the Placenta)':[],
+ 'Fourth Stage of Labor (Recovery)':[['avoiding / delaying breastfeeding',/\b(avoid|stop|delay|postpone|withhold)\w*\s+(breastfeed\w*|nurs\w*)\b|\bdo not breastfeed/,1],['prolonged bed rest without ambulation',/\b(bed rest|stay in bed|lie in bed|remain in bed)\b.{0,20}\b(24|48|days|one day|two days|whole day|all day)/]]
+};
+const CARE_BAD=[...W_ALL,W_PUSH,W_PUSH2,W_SUPINE];
+/* contested items: never deducted, only flagged for the faculty to review */
+const REVIEW_RE=[['routine enema',/\benema\b/],['nothing by mouth for the whole labor',/\bnothing by mouth\b/],['oxytocin without a doctor order',/\b(give|administer|start|begin)\w*\b.{0,12}\b(oxytocin|syntocinon|pitocin)\b(?!.{0,30}\b(order|prescri|doctor|physician|obstetrician|protocol)\w*)/]];
+const reviewHits=cl=>REVIEW_RE.filter(([l,re])=>cl.some(t=>re.test(t))).map(x=>x[0]);
+const isUnsafe=t=>wrongHits(clauseSplit(t),CARE_BAD).length>0;
+
+/* ---------------- NURSING CARE PLAN ----------------
+   n=name, w=weight, kind='actual'|'risk'|'either' (how the diagnosis should be worded), p=problem words (must appear in the problem part),
+   c=usual causes (after "related to"), e=scenario evidence (after "as evidenced by"), a=intervention GROUPS (each group = one idea; several wordings inside a group). */
+const S=s=>s.split('|');
+const CARE_TOPICS = [
+ {n:'Acute labor pain (priority problem)', w:1.5, kind:'actual',
+  p:S('pain|ache|cramp|discomfort|hurt|agony|impaired comfort|uterine contraction|painful contraction'),
+  c:S('contraction|uterine|cervi|dilat|stretch|descent|pressure|presenting part|labor|physiolog|process|effacement|tissue|ischemi|fetal head|pelvic|childbirth|birth|myometri'),
+  e:S('contraction|painful|moderate|3 10|3 in 10|three|every|regular|grimac|moan|cry|pain|4 cm|cervi|dilat|facial|restless|guard|score|verbaliz|complain|admit|breath|sweat|tired'),
+  a:[S('breath|pant|relax|focus|visualiz|imagery|distract|music|lamaze'),S('position|ambulat|walk|birth ball|gym ball|lateral|left side|upright|squat|hands and knees|kneel|rock|mobil'),S('massage|counterpressure|counter pressure|effleurage|back rub|sacral|touch|acupressure|hip squeeze|stroking'),S('warm|heat|shower|bath|hydrotherapy|compress|cold pack|water immersion|tub'),S('reassur|support|companion|husband|partner|encourag|presence|listen|calm|privacy|praise'),/\b(assess|evaluate|monitor|check|rate|ask|measure)\w*\b.{0,30}\b(pain|contraction|discomfort)\b|\bpain (scale|score|level|rating)\b/,S('analges|pethidine|epidural|spinal|tens|entonox|nitrous|paracetamol|opioid|narcotic|anesthe|pain relief|painkiller|pain killer|drug|medication'),S('bladder|void|urinat'),S('quiet|dim|noise|environment|light'),/\b(monitor|assess|palpate|observe|time|record)\w*\b.{0,25}\b(contraction|uterine|frequency|duration|interval)/,/\b(inform|notify|report|call|consult)\w*\b.{0,20}\b(doctor|physician|obstetrician|midwife)/]},
+ {n:'Anxiety / fear related to labor & birth', w:1, kind:'actual',
+  p:S('anxi|fear|worr|stress|coping|apprehens|tension|emotional|nervous|panic'),
+  c:S('labor|pain|unfamiliar|environment|birth|childbirth|giving birth|delivery|outcome|unknown|situation|knowledge|contraction|hospital|admission|process|crisis|stress|separation|baby|uncertain|risk|threat|change|role|lack'),
+  e:S('restless|tense|worr|afraid|fear|cry|tremor|verbaliz|express|ask|question|moan|anxious|pulse|86|contraction|tired|g3|multipara|admit|face|irritab|agitat|sweat|insomnia|trembl|labor'),
+  a:[S('listen|reassur|support|encourag|calm|empath|therapeutic|presence|stay with|remain with|praise|confidence'),S('explain|inform|orient|educat|teach|update|clarif|information|let her know|familiar|answer'),S('breath|relax|massage|music|visualiz|imagery|meditat|distract|touch|pray|quran|religio|spiritual'),S('companion|husband|partner|family|doula|relative|sister'),S('privacy|quiet|environment|dim|curtain|screen|comfortable'),/\b(assess|evaluate|monitor|observe|identify|ask)\w*\b.{0,30}\b(anxi|fear|worr|concern|feeling|coping|emotion)/,S('involve|participat|decision|choice|consent|control|informed'),S('analges|pain relief|epidural|pethidine')]},
+ {n:'Fatigue / exhaustion', w:1, kind:'actual',
+  p:S('fatigue|tired|exhaust|energy|weak|sleep|lethargy|weary|activity intolerance|depleted'),
+  c:S('prolonged|labor|contraction|pain|sleep|energy|hour|exertion|physical|effort|metabolic|anxiety|stress|dehydrat|fluid|glucose|nutrition|intake|hunger|demand|work of'),
+  e:S('tired|fatigue|exhaust|weak|yawn|letharg|hour|since|8 am|admit|contraction|pulse|86|appear|look|sleepy|general'),
+  a:[S('rest|between contraction|conserve|energy|relax|sleep|nap|quiet|dim'),S('fluid|sip|juice|glucose|iv|dextrose|drink|hydrat|light diet|carbohydrate|snack|nutrition|dates|honey|tea|ice chip'),S('position|lateral|left|support|pillow|comfort|massage|back rub|birth ball|recline|semi|prop'),S('breath|relax|pant'),/\b(monitor|assess|check|observe|measure|record|evaluate)\w*\b.{0,30}\b(vital|bp|pulse|temp|fatigue|energy|level|exhaust|hydrat|intake)/,S('encourag|reassur|praise|support|husband|companion|motivat|update|progress'),S('analges|epidural|pain relief|pethidine'),S('quiet|dim|noise|light|privacy|visitor'),/\b(inform|notify|report|call|consult)\w*\b.{0,20}\b(doctor|physician|obstetrician|midwife)/,S('bladder|void')]},
+ {n:'Risk of fetal compromise / fetal distress', w:1, kind:'risk',
+  p:S('fetal|fetus|baby|fhr|heart rate|distress|hypoxi|compromise|oxygen|meconium|perfusion|asphyxi|well being|wellbeing'),
+  c:S('labor|contraction|uterine|cord|placental|perfusion|oxygen|hypoxi|prolonged|rupture|membrane|maternal|position|supine|compress|descent|head|insufficien|uteroplacental|meconium|stress|exhaust|dehydrat|hyperstimul|decreased'),
+  e:S('fhr|144|146|148|150|bpm|beats|liquor|clear|descent|contraction|normal|molding|heart|fetal|risk factor|g3|multipara|rupture|membrane|prolonged|progress|cephalic|vertex|head|2 hour|1 cm|labor'),
+  a:[S('fhr|fetal heart|doppler|pinard|fetoscope|auscult|ctg|cardiotoco|electronic fetal|fetal monitor'),S('every 30|every 15|every 5|30 minute|15 minute|5 minute|after each contraction|after every contraction|hourly|half hour|continuous|each hour|every half|regular'),S('partograph|record|document|chart|plot'),S('liquor|meconium|color|colour|amniotic|green|stain'),S('left|lateral|position|side lying'),S('oxygen|mask|10 l|8 l'),/\b(inform|notify|report|call|consult)\w*\b.{0,20}\b(doctor|physician|obstetrician|midwife|senior)/,S('iv|fluid|hydrat|ringer|saline'),/\b(monitor|assess|palpate|observe)\w*\b.{0,25}\b(contraction|uterine|hyperstimul|tachysystole)|hyperstimul|tachysystole/,S('cord prolapse|prolapse|vaginal exam'),S('vital|bp|pulse|temp|maternal'),S('prepare|emergency|resuscitat|cesarean|forceps|vacuum|instrument|nicu|pediatric|neonatal|stop oxytocin|discontinu'),S('movement|kick')]},
+ {n:'Risk of infection (ROM & vaginal exams)', w:1, kind:'risk',
+  p:S('infection|sepsis|chorioamnionitis|septic|contamin|ascending'),
+  c:S('rupture|membrane|srom|prom|vaginal exam|exam|invasive|procedure|prolonged|pathogen|amniotic|liquor|bacteri|ascending|cervical|manipul|catheter|interruption|skin|defense|barrier|perineal|hygiene|contamin|labor|episiotomy'),
+  e:S('rupture|srom|membrane|2 30|14 30|liquor|vaginal|exam|temperature|36|afebrile|hour|clear|pad|discharge|multiple|intact'),
+  a:[S('hand wash|handwash|hand hygiene|wash hand|sterile|aseptic|glove|antisep|asepsis|sterili|sanitiz'),/\b(limit|minimi|restrict|reduc|avoid|only when|only if)\w*\b.{0,25}(vaginal|exam|\bve\b)|vaginal exam\w*.{0,20}(every (2|3|4) hour|when (indicated|necessary|needed)|only)/,S('temperature|temp|fever|vital|pulse|sign of infection|signs of infection|odor|odour|foul|discharge'),S('perineal|pad|hygiene|wash|swab|cleanse|front to back|clean'),/(time|duration|hour).{0,15}(rupture|rom|membrane)|(rupture|rom|membrane).{0,20}(time|duration|hour|record|note)/,S('liquor|color|colour|odor|odour|foul|meconium|amniotic'),S('antibiotic|prophyla|gbs|cefazolin|ampicillin|penicillin'),S('linen|sheet|environment|disinfect|sterile field'),/\b(avoid|minimi|limit)\w*\b.{0,20}(invasive|procedure|interven|catheter)/,S('educat|teach|inform|instruct|explain'),/\b(inform|notify|report|call|consult)\w*\b.{0,20}\b(doctor|physician|obstetrician|midwife)/]},
+ {n:'Delayed / slow progress of labor', w:1, kind:'either',
+  p:S('progress|prolong|slow|delay|protract|dystocia|partograph|alert line|action line|dilat|cervical|arrest|inertia|cpd|cephalopelvic|ineffective'),
+  c:S('contraction|uterine|inertia|hypotonic|pelvis|pelvic|cpd|cephalopelvic|malposition|malpresent|position|head|bladder|fatigue|anxiety|pain|dehydrat|ineffective|cervical|rigid|descent|engage|station|molding|occiput|posterior|weak|inadequate|dysfunctional|psycholog|fear|exhaust|macrosomia|labor'),
+  e:S('alert line|action line|1 cm|2 hour|dilat|6 cm|7 cm|8 cm|cervical|partograph|slow|crossed|right|cm|4 cm|per hour|progress|descent|station|contraction|molding|delay'),
+  a:[S('partograph|plot|chart|graph|alert line|action line|record'),S('vaginal exam|dilat|descent|effacement|station|cervix|assess progress|cervical|engage'),S('contraction|uterine activity|frequency|duration|intensity|palpate'),S('position|ambulat|walk|upright|squat|lateral|birth ball|mobil|hands and knees|kneel'),S('bladder|void|urinat|catheter'),S('fluid|hydrat|iv|glucose|nutrition|rest|energy|sip|dextrose|ringer'),/\b(inform|notify|report|call|consult|refer)\w*\b.{0,20}\b(doctor|physician|obstetrician|midwife|senior)|\brefer\b/,S('amniotomy|artificial rupture|oxytocin|syntocinon|pitocin|augment|induc|stimulat|cesarean|forceps|vacuum|instrumental|operative'),S('reassur|support|encourag|analges|pain relief|epidural|relax|breath'),S('fhr|fetal|vital|maternal|monitor'),S('pelvis|pelvic|cpd|cephalopelvic|fetal size|malposition|presentation')]},
+ {n:'Impaired urinary elimination / bladder distention', w:1, kind:'either',
+  p:S('urinary|urine|bladder|void|elimination|retention|distend|distention|distension|micturit|urinat|oliguria'),
+  c:S('descent|head|pressure|presenting part|labor|contraction|pain|fluid|intake|fatigue|anxiety|sensation|compress|position|bedpan|privacy|environment|epidural|anesthe|edema|perine|unable|decreased|urethral|bladder tone|hour'),
+  e:S('descent|head|bladder|hour|intake|fluid|labor|urine|void|dilat|since 8|8 am|distend|suprapubic|palpable|output|volume|ml|unable|not voided|has not|last void'),
+  a:[S('void|urinat|toilet|bathroom|bedpan|pass urine|micturit|every 2|regular|frequent'),S('palpat|suprapubic|distend|distention|assess bladder|inspect|dullness'),S('catheter|cathet'),S('privacy|position|sitting|squat|running water|warm water|pour'),S('intake|output|fluid|hydrat|intake output|record|balance|measure|volume'),S('explain|educat|teach|inform|instruct'),S('protein|ketone|acetone|urinalysis|urine test|color|colour'),/\b(inform|notify|report|call|consult)\w*\b.{0,20}\b(doctor|physician|obstetrician|midwife)/]},
+ {n:'Deficient knowledge / readiness for second stage', w:1, kind:'either',
+  p:S('knowledge|educat|teach|inform|aware|understand|learn|counsel|prepar|readiness|second stage|push|bearing|ready|misconception|deficient'),
+  c:S('lack|information|exposure|experience|unfamiliar|new|inexperience|misinterpret|inadequate|anxiety|cognitive|second stage|pushing|technique|labor|childbirth|birth process|fear|stress|barrier|education|multipara|previous'),
+  e:S('10 cm|full|dilat|fully|second stage|ready|urge|descent|0 5|contraction|60 second|ask|question|verbaliz|unsure|misconception|lack of knowledge|inquir|uncertain|explain|request|push|head|crown|station'),
+  a:[S('push|bear down|chin|curl|valsalva|hold|open glottis|technique'),S('position|lithotomy|semi|squat|sitting|lateral|delivery position|knees|legs|upright'),S('teach|explain|instruct|inform|demonstrat|feedback|return demonstration|coach|educat|reinforce|assess understanding|evaluate understanding|clarif'),S('rest|between contraction|breath|relax'),S('delivery room|transfer|prepare|aseptic|sterile|equipment|set up|trolley|drape|gown|glove|scrub'),S('urge|full dilat|10 cm|complete|crown|bulging|desire|rectal pressure|anal|bearing'),S('encourag|reassur|support|husband|companion|praise'),S('fhr|fetal heart|vaginal exam|assess')]},
+ {n:'Risk of perineal trauma', w:1, kind:'risk',
+  p:S('perine|tear|laceration|episiotomy|trauma|injury|integrity|genital|skin integrity'),
+  c:S('multipara|third|g3|crown|head|second stage|descent|stretch|precipitate|rapid|macrosomia|large baby|pressure|deliver|instrumental|push|uncontrolled|labor|childbirth|vaginal|malposition|shoulder'),
+  e:S('multipara|third|g3|crown|head|second stage|descent|full|dilat|perine|vaginal|position|baby|labor|birth|deliver'),
+  a:[S('support|ritgen|hand|perineal|protect|guard'),S('warm|compress|massage|oil|lubric|stretch'),S('control|pant|slow|flexion|crown|gentle|blow|stop push|ease|gradual|guide'),S('position|lateral|squat|semi|sitting|hands and knees|upright'),S('episiotom|repair|suture|stitch|incision|local|lidocaine|infiltrat'),S('push|instruct|teach|explain|coach|breath'),S('inspect|assess|exam|check|laceration'),S('ice|cold|hygiene|clean|pad|wash'),S('kegel|pelvic floor')]},
+ {n:'Risk of dehydration / nutrition in labor', w:1, kind:'risk',
+  p:S('fluid|dehydrat|hydrat|volume|thirst|nutrition|intake|hunger|dry|deficit|electrolyte|ketosis'),
+  c:S('hour|labor|intake|nothing by mouth|fasting|sweat|tachypnea|hyperventilat|vomit|exertion|prolonged|decreased|insufficient|restrict|inadequate|perspir|nausea|fatigue|not eating|loss|energy|breath|metabolic|demand|since'),
+  e:S('hour|labor|intake|tired|since|8 am|urine|vital|pulse|bp|dry|thirst|output|86|120 80|sweat|skin|mucous|lip|last meal|no intake|not eaten|ketone|concentrated'),
+  a:[S('sip|ice chip|fluid|drink|juice|oral|water|tea|isotonic|hydrat|light diet|clear liquid|honey|dates|snack|glucose'),S('iv|intravenous|ringer|saline|dextrose|cannula|infus'),S('intake|output|intake output|urine|measure|record|balance|volume|ml'),S('vital|bp|pulse|temp|monitor|respirat'),S('turgor|mucous|mouth|lip|dry|thirst|capillary|concentrat|sunken|sign of dehydration|signs of dehydration'),S('mouth|lip|oral care|lubric|vaseline|balm|moisten'),S('ketone|acetone|urine test|urinalysis|sugar'),/\b(inform|notify|report|call|consult)\w*\b.{0,20}\b(doctor|physician|obstetrician|midwife)/]},
+ {n:'Risk of postpartum hemorrhage', w:1, kind:'risk',
+  p:S('hemorrhage|bleeding|blood loss|pph|hemorrhagic|blood volume|hypovolemi'),
+  c:S('multipara|grand|third|g3|atony|prolonged|labor|retained|tear|laceration|overdistension|full bladder|uterine|placenta|coagul|episiotomy|trauma'),
+  e:S('multipara|third|g3|prolonged|labor|hour|uterine|descent|vital|hb|11 4|hemoglobin|anemia|contraction|deliver|pulse|86'),
+  a:[S('fundus|massage|palpat|uterine tone|firm'),S('oxytocin|uterotonic|syntocinon|methergine|ergometrine|misoprostol|cytotec'),S('bleeding|lochia|pad|blood loss|estimate|amount|clot'),S('vital|bp|pulse|shock'),S('bladder|void|catheter'),S('iv|cannula|cross match|crossmatch|blood group|blood bank|hb|hemoglobin|ready'),S('inspect|placenta|complete|tear|laceration'),S('skin|breastfeed|nipple'),/\b(inform|notify|report|call|consult)\w*\b.{0,20}\b(doctor|physician|obstetrician|midwife)/]},
+ {n:'Risk for injury (maternal safety)', w:1, kind:'risk',
+  p:S('injury|fall|safety|harm'),
+  c:S('fatigue|pain|analges|medication|weak|dizz|contraction|labor|sedation|anesthe|position|slippery|bed|environment|unsteady|tired'),
+  e:S('tired|contraction|pain|dizz|weak|labor|pethidine|analges|pulse|unsteady|walk|ambulat|bed'),
+  a:[S('side rail|bed rail|rail|call bell|bell|never leave|not leave|stay with|remain with|accompan|companion|husband|supervis'),S('assist|help|support|walk|ambulat|escort|bathroom|toilet|wheelchair|non slip|slipper|dry floor|floor'),S('low|environment|clutter|safe|light|bed|brake|stretcher'),S('dizz|vital|bp|pulse|orthostatic|assess|monitor'),S('position|lateral|left'),S('teach|educat|instruct|inform|explain|call')]},
+ {n:'Readiness for enhanced childbearing process', w:1, kind:'either',
+  p:S('childbearing|childbirth process|readiness for enhanced|enhanced childbearing|birthing'),
+  c:S('multipara|experience|g3|prior|previous|expressed|desire|willingness|motivation|readiness|knowledge|positive|support'),
+  e:S('g3|multipara|p2|two|previous|verbaliz|express|cooperat|follow|ask|question|husband|support|labor|contraction|admit'),
+  a:[S('teach|explain|inform|educat|reinforce|instruct|counsel'),S('breath|relax'),S('support|companion|husband|partner'),S('birth plan|plan|choice|decision|preference|participat|involve|wishes'),S('position'),S('push'),S('praise|encourag')]}
+];
+const SCENARIO_TOPICS = ['Acute labor pain (priority problem)','Anxiety / fear related to labor & birth','Fatigue / exhaustion','Risk of fetal compromise / fetal distress','Risk of infection (ROM & vaginal exams)','Delayed / slow progress of labor','Impaired urinary elimination / bladder distention','Deficient knowledge / readiness for second stage'];
+const cmax = n => 4.5*((CARE_TOPICS.find(x=>x.n===n)||{}).w||1);
+const ACC=CARE_TOPICS.map(t=>t.a.map(g=>typeof g==='string'?{k:g.split('|')}:Array.isArray(g)?{k:g}:{re:[g],k:[]}));
+
+/* Diagnosis format: Problem + related to (or: due to / secondary to / because of ...) cause + as evidenced by (or: manifested by / characterized by ...) evidence */
+const RT_RE = /\b(relat(?:ed|ing)? (?:to|with)|r\s?\/\s?t|r\.t|rt|due to|d\s?\/\s?t|secondary to|because of|caused by|as a result of|result of|resulting from|owing to|attributed to|associated with|linked to)\b/;
+const AEB_RE = /\b(as evidenced by|evidenced by|a\s?\/?\s?e\s?\/?\s?b|manifested by|as manifested by|m\s?\/\s?b|characterized by|as characterized by|as shown by|shown by|as indicated by|indicated by|as demonstrated by|demonstrated by|as proven by|proved by|supported by|as verified by|as evident by|evident by|as reflected by|defining characteristics)\b/;
+function parseDx(raw){
+  const t=norm2(raw==='-'?'':raw), a=AEB_RE.exec(t), r=RT_RE.exec(t);
+  let problem=t, cause='', evid='', order=true;
+  if(a&&r){
+    if(r.index<a.index){ problem=t.slice(0,r.index); cause=t.slice(r.index+r[0].length,a.index); evid=t.slice(a.index+a[0].length); }
+    else { order=false; problem=t.slice(0,a.index); evid=t.slice(a.index+a[0].length,r.index); cause=t.slice(r.index+r[0].length); }
+  } else if(a){ problem=t.slice(0,a.index); evid=t.slice(a.index+a[0].length); }
+  else if(r){ problem=t.slice(0,r.index); cause=t.slice(r.index+r[0].length); }
+  return {t,problem,cause,evid,hasRT:!!r,hasAEB:!!a,order};
+}
+/* goal: patient-centred + measurable / time-bound */
+const GOAL_SUBJ=/\b(patient|mother|client|woman|she|her|sarah|mrs|the mother|the patient|will)\b/;
+const GOAL_NURSE=/^\s*(the )?(nurse|i will|student|to (give|provide|assess|monitor|administer|teach|maintain|check|observe|do|perform))\b/;
+const GOAL_VERB=S('relieve|reduce|decreas|lower|maintain|prevent|verbaliz|demonstrat|achiev|control|avoid|understand|report|express|cope|coping|tolerat|regain|show|remain|have|free|attain|reach|deliver|progress|void|urinat|rest|sleep|explain|state|identif|participat|perform|follow|able|manage|improv|minimi|stay|experience|feel|relax|comfort|safe|stable|normal|within|no sign|absence|dilat');
+const TIME_RE=/\b(within|by the end|by|after|before|during|throughout|until|in)\b\s*(the )?\d|\b\d+\s*(minute|hour|day|week|cm|bpm|beat)\b|\b(end of (labor|shift|first stage|second stage|delivery)|during (labor|the first stage|the second stage)|throughout labor|before delivery|after delivery|at discharge|by discharge|per hour|every \d+|next \d+ )\b|\b(pain (score|scale|level|rating)|score)\b|\b\d+\s*\/\s*10\b|110\s*(to)?\s*160|\bwithin normal (range|limit)/;
+
+const ASSESS_WORDS = S('assess|monitor|check|measure|observe|evaluate|record');
+const MED_WORDS = S('administer|medication|medicine|drug|tablet|antihypertensive|analgesic|prescribed|methyldopa|labetalol|nifedipine|paracetamol');
+function interventionOrderOk(text){
+  const t=norm2(text), firstIdx = words => { let m=Infinity; words.forEach(w=>{ const i=findP(t,w); if(i>=0&&i<m) m=i; }); return m; };
+  const idxA = firstIdx(ASSESS_WORDS), idxM = firstIdx(MED_WORDS);
+  if(idxA===Infinity || idxM===Infinity) return true;
+  return idxA < idxM;
+}
+/* things the scenario contradicts (mother is stable: BP 120/80, T 36.8, FHR 144-150 clear liquor, no HTN/DM/anemia/bleeding) */
+function contradicts(ev){
+  const out=[], cl=clauseSplit(ev);
+  const num=(re)=>{ const m=re.exec(ev.toLowerCase().replace(/(\d),(\d)/g,'$1.$2')); return m?+m[m.length-1]:null; };
+  const f=num(/(?:fhr|fetal heart(?: rate)?)\D{0,15}(\d{2,3})/); if(f!==null&&(f<110||f>160)) out.push('FHR is 144-150 in the scenario');
+  const bp=/(?:bp|blood pressure)\D{0,10}(\d{2,3})\s*\/\s*(\d{2,3})/.exec(ev.toLowerCase()); if(bp&&(+bp[1]>=140||+bp[2]>=90||+bp[1]<90)) out.push('BP is 120/80 in the scenario');
+  const tm=num(/temp\w*\D{0,10}(3[7-9]\.\d|4\d(?:\.\d)?)/); if(tm!==null&&tm>=37.5) out.push('temperature is 36.8 in the scenario');
+  const wr=wrongHits(cl,[['meconium-stained liquor',/\b(meconium|green liquor|thick liquor|foul liquor)\b/,1],['hypertension / pre-eclampsia',/\b(hypertens|pre ?eclampsia|eclampsia|high blood pressure)/,1],['diabetes',/\bdiabet|hyperglyc/,1],['anemia',/\banemi/,1],['fever',/\bfever|febrile|pyrexia/,1],['bleeding / antepartum hemorrhage',/\b(vaginal bleeding|antepartum hemorrhage|aph|bleeding per vagina)\b/,1]]);
+  return out.concat(wr.map(x=>x+' is not in the scenario'));
+}
+function scoreRow(r){
+  const cl0=v=>v==='-'?'':String(v||'');
+  const dRaw=cl0(r.diag), gRaw=cl0(r.goal), iRaw=cl0(r.interv);
+  const dx=parseDx(dRaw), g=norm2(gRaw), i=norm2(iRaw), all=dx.t+' '+g+' '+i, flags=[];
+  const clI=clauseSplit(iRaw);
+  const gcount=(ix)=>ACC[ix].filter(gr=>hitConcept(clI,gr)).length;
+  let best=null, tie=false, hits=0, probTopics=0;
+  CARE_TOPICS.forEach((tp,ix)=>{
+    const sp=cntP(dx.problem,tp.p), sa=cntP(all,tp.p); if(!sa) return; hits++; if(sp) probTopics++;
+    const sc=4*sp+0.5*cntP(dx.cause,tp.p)+cntP(g,tp.p)+0.5*cntP(i,tp.p)+0.5*gcount(ix);
+    if(!best||sc>best.s){ best={tp,ix,s:sc,sp}; tie=false; } else if(sc===best.s) tie=true;
+  });
+  if(all.trim().split(' ').length>150) flags.push('very long row (possible keyword stuffing)');
+  if(!best){
+    const wellFormed=dx.hasRT&&dx.hasAEB&&dx.problem.trim().split(' ').length>=2&&g.trim()&&i.trim().split(' ').length>=4&&!wrongHits(clauseSplit(all),CARE_BAD).length;
+    return {topic:null, pts:wellFormed?0.5:0, flags:flags.concat('unmatched idea - review manually')};
+  }
+  if(tie) flags.push('ambiguous topic'); if(hits>=5) flags.push('many topics in one row'); if(probTopics>=2) flags.push('two nursing problems written in one diagnosis (one problem per row)');
+  const tp=best.tp;
+  const dxp=best.sp?1:(dx.t.trim()?0.5:0);
+  const gl=g.trim()? ((GOAL_SUBJ.test(g)&&!GOAL_NURSE.test(g)&&(cntP(g,GOAL_VERB)+cntP(g,tp.p)>0))?0.5:0)+(TIME_RE.test(g)?0.5:0) : 0;
+  if(g.trim()&&GOAL_NURSE.test(g)) flags.push('goal must describe what the mother will achieve, not what the nurse will do');
+  const ic=gcount(best.ix), iv=i.trim()?(ic>=3?2:ic===2?1.5:ic===1?1:0.25):0;
+  let evd=0;
+  if(dx.t.trim()&&dx.hasAEB){
+    const con=contradicts(dx.evid);
+    if(con.length){ flags.push('evidence contradicts the scenario: '+con.join('; ')); }
+    else if(cntP(dx.evid,tp.e)>=1) evd=0.5; else flags.push('evidence after "as evidenced by" not supported by the scenario');
+  }
+  let pts=dxp+gl+iv+evd;
+  if(dx.t.trim()){
+    if(!dx.hasRT){ pts=Math.max(0,pts-0.5); flags.push('diagnosis missing "related to" clause'); }
+    if(!dx.hasAEB){ pts=Math.max(0,pts-0.5); flags.push('diagnosis missing "as evidenced by" clause'); }
+    if(dx.hasRT&&dx.hasAEB&&!dx.order){ pts=Math.max(0,pts-0.25); flags.push('diagnosis parts are out of order (Problem, then cause, then evidence)'); }
+    if(dx.hasRT&&dx.cause.trim()&&cntP(dx.cause,tp.c)===0){ flags.push('the cause you gave is not a usual cause of this problem (faculty review, no deduction)'); }
+    const isRisk=/\b(risk (for|of)|at risk|potential|high risk|prone)\b/.test(dx.problem);
+    if(tp.kind==='risk'&&!isRisk){ pts=Math.max(0,pts-0.25); flags.push('this problem has not happened yet - word it as "Risk for ..."'); }
+    if(tp.kind==='actual'&&isRisk){ pts=Math.max(0,pts-0.25); flags.push('this problem is already present in the scenario - word it as an actual diagnosis, not "risk for"'); }
+  }
+  if(i.trim() && !interventionOrderOk(iRaw)){ pts=Math.max(0,pts-0.5); flags.push('intervention order incorrect (medication before assessment)'); }
+  const bad=wrongHits(clauseSplit(all),CARE_BAD);
+  if(bad.length){ pts=Math.max(0,pts-1); flags.push('unsafe advice: '+bad.join('; ')); }
+  reviewHits(clauseSplit(all)).forEach(x=>flags.push('review: '+x));
+  if(!dx.t.trim()) flags.push('no diagnosis');
+  return {topic:tp.n, pts:pts*tp.w, flags};
+}
+function scoreCare(rows){
+  const byTopic={}, review=[]; let other=0;
+  rows.forEach((r,ix)=>{ const sc=scoreRow(r); sc.flags.forEach(f=>review.push('Care row '+(ix+1)+': '+f));
+    if(sc.topic){ if(byTopic[sc.topic]===undefined||sc.pts>byTopic[sc.topic]) byTopic[sc.topic]=sc.pts; } else other+=sc.pts; });
+  const topics=Object.keys(byTopic).map(k=>({name:k,pts:byTopic[k]}));
+  if(other) topics.push({name:'Other ideas (not matched to scenario – review manually)',pts:Math.min(1.5,other)});
+  if(byTopic[CARE_TOPICS[0].n]===undefined) review.push('Priority nursing diagnosis missing: acute labor pain related to uterine contractions');
+  const sum=topics.reduce((x,t)=>x+t.pts,0);
+  return {pts:Math.min(CFG.carePlanMax,sum), topics, review};
+}
+
+/* ---------------- HEALTH EDUCATION ----------------
+   Each stage: a list of ideas. One valid idea = 1 point (CFG.healthEdPerCategory points = full marks for that stage).
+   k = accepted words (word-start match), re = special wording, all = a second word that must be in the same sentence,
+   negOk = a negative sentence still counts (e.g. "report if there is NO fetal movement"), x:0 = can never earn cross-stage credit. */
+const TEACH='explain|inform|orient|teach|educat|counsel|update|tell|let her know|keep her informed|instruct|describe|prepare her|make her aware|aware';
+const HE_RUBRIC = {
+ 'First Stage of Labor (Dilatation)':[
+  C('Explain labor progress & what to expect',TEACH,{all:S('progress|labor|labour|stage|dilat|cervi|contraction|process|expect|what|procedure|exam|plan|phase|delivery|birth|partograph|effacement'),x:0}),
+  C('Breathing & relaxation techniques','breath|relax|panting|pant|effleurage|visualiz|meditat|imagery|mindful|focus|concentrat|lamaze|music|distract|yoga'),
+  C('Comfort measures, position changes & walking','position|walk|ambulat|lateral|left side|birth ball|gym ball|shower|warm bath|hydrotherapy|massage|counterpressure|counter pressure|back rub|sacral|squat|hands and knees|rocking|upright|warm compress|heat|comfort|move around|mobil'),
+  C('Empty bladder frequently','bladder|void|urinat|urine|toilet|bathroom|micturit|pass urine'),
+  C('Oral fluids / light diet','fluid|sip|ice chip|water|juice|light diet|light meal|snack|glucose|drink|hydrat|oral intake|nutrition|clear liquid|dates|honey|tea|isotonic'),
+  C('Do not push before full dilatation','',{re:[/\b(do not|dont|don t|not|never|avoid|resist|refrain|no)\b.{0,25}\b(push|bear|strain)/,/\b(wait|until|only when|only after)\b.{0,30}\b(full|complete|10 ?cm|fully)/,/\bpant\w*\b.{0,30}\b(urge|push)/,/\b(urge|desire) to push\b.{0,30}\b(tell|inform|report|call|nurse|midwife|wait)/]}),
+  C('Emotional support / companion','support|reassur|encourag|husband|companion|partner|family|praise|anxi|fear|calm|privacy|presence|psycholog|emotional|listen|trust|confidence|morale|doula',{x:1}),
+  C('Monitoring explained (FHR, vitals, vaginal exam)','fhr|fetal heart|heart rate|vital|vaginal exam|exam|partograph|monitor|cardiotoco|ctg|doppler|pinard|observe|blood pressure|bp|pulse|temperature'),
+  C('Report danger signs','bleed|meconium|green|fetal movement|decreased movement|reduced movement|severe pain|constant pain|continuous pain|headache|blurr|visual|convuls|fever|foul|water break|gush|leak|prolapse|danger|warning|abnormal',{negOk:true,re:[/\b(report|inform|tell|call|notify)\b.{0,40}\b(nurse|midwife|staff|doctor|bleed|pain|leak|water|movement|urge|sign|symptom)/]}),
+  C('Hygiene / perineal care & privacy','hygiene|perine|pad|hand wash|handwash|hand hygiene|wash hand|privacy|sanitary|gown|genital|clean',{x:1}),
+  C('Rest / conserve energy between contractions','rest|conserve|energy|sleep|nap|between contraction'),
+  C('Pain-relief options explained','analges|epidural|pethidine|pain relief|pain control|tens|entonox|pain killer|painkiller|anesthe'),
+  C('Medical plan if progress is slow (doctor review, amniotomy, oxytocin)','amniotomy|artificial rupture|oxytocin|syntocinon|augment|doctor|obstetrician|physician|refer|review|induc|stimulat')
+ ],
+ 'Second Stage of Labor (Expulsion of the Fetus)':[
+  C('Pushing technique with contractions','push|bear down|chin|curl|valsalva|open glottis|hold your breath|hold breath|strain|expulsive|effort'),
+  C('Delivery position','position|lithotomy|semi|sitting|squat|lateral|knees|legs|upright|kneel|all fours|hands and knees|dorsal|stirrup|birthing stool|birth stool|recline|propped|supported'),
+  C('Rest & breathe between contractions','rest|between contraction|relax|conserve|energy|breath|sip|recover'),
+  C('Controlled delivery of the head (pant / stop pushing)','',{re:[/\b(pant|blow|blowing)\w*\b/,/\bstop (pushing|bearing)/,/\b(do not|dont|don t|not) push\b.{0,30}\b(head|crown|told|instruct)/,/\b(slow|gentle|controlled|gradual)\w*\b.{0,20}\b(delivery|head|crown|push)/,/\bcrown\w*\b/,/\britgen\b/]}),
+  C('Perineal support / episiotomy information','perine|episiotom|tear|laceration|warm compress|massage|stretch|repair|stitch|suture|local anesthe|lidocaine'),
+  C('Encouragement & progress updates','encourag|praise|reassur|support|keep her informed|update|progress|coach|motivat|positive|tell her|inform her|let her know',{x:1}),
+  C('Aseptic preparation / draping','aseptic|sterile|drape|catheter|empty bladder|scrub|glove|gown|antisep|betadine|povidone|sterili|swab|cleans|perineal wash|hygiene|prepare the perine'),
+  C('Fetal monitoring / reporting','fhr|fetal heart|monitor|doppler|pinard|auscult|vital|meconium|report|observe'),
+  C('Immediate newborn care expectation','skin|newborn|baby|dry|warm|cry|cord|apgar|airway|suction|clamp|wrap|breastfeed|kangaroo|vitamin k|eye|identif|bracelet'),
+  C('Signs of second stage explained','urge|desire to push|full dilat|10 cm|complete dilat|crown|burning|stretching|rectal pressure|fullness|head visible|second stage',{x:0}),
+  C('Cooperation / follow instructions','follow instruct|listen|cooperat|feedback|communicat|follow the|as directed|when told|when instructed'),
+  C('Privacy & dignity','privacy|screen|curtain|dignity|exposure|cover')
+ ],
+ 'Third Stage of Labor (Delivery of the Placenta)':[
+  C('Explain placenta delivery & cord traction','placenta|afterbirth|cord|traction|controlled cord|separat|brandt|schultze|duncan|gush|lengthen'),
+  C('Gentle pushing when asked','',{re:[/\b(push|bear down)\w*\b.{0,30}\b(gentl|when (asked|told|instruct)|once|as directed|placenta|light)/,/\b(gentle|light)\w*\b.{0,15}\b(push|bear)/]}),
+  C('Uterine massage / fundus / uterotonic','fundus|massage|uterine|uterus|firm|contracted|uterotonic|oxytocin|syntocinon|methergine|ergometrine|misoprostol|cytotec|uterine tone|boggy|atony'),
+  C('Observe bleeding & signs of separation','bleed|blood|gush|lengthen|separat|loss|estimate|clot|globular|fundus rise|cord lengthening',{negOk:true}),
+  C('Skin-to-skin & early breastfeeding','skin|breastfeed|bonding|latch|colostrum|newborn|baby|early|nurs|suckl|first hour|golden hour|kangaroo',{x:1}),
+  C('Inspect placenta & birth canal','inspect|complete|membranes|tear|laceration|episiotomy|repair|exam|cotyledon|missing|retained|suture|stitch|cervix|vagina|birth canal|perine'),
+  C('Vital signs','vital|bp|blood pressure|pulse|temp|heart rate|respirat',{x:1}),
+  C('Comfort & warmth','comfort|pain|warm|blanket|cover|analges|reassur|privacy|clean|dry|gown|pad|linen'),
+  C('Expected duration of the third stage','',{re:[/\b(5|five)\s*(to|or)?\s*(30|thirty)\b/,/\bup to (30|thirty)\b/,/\bwithin (30|thirty|15|fifteen)\b/,/\b(short|brief|quick)\b.{0,15}\bstage\b/,/\bminute/],x:0}),
+  C('Danger signs of the third stage','retained placenta|heavy bleeding|hemorrhage|pph|dizz|faint|pallor|tachycard|shock|atony|inversion|report|weak|sweat',{negOk:true}),
+  C('Active management (oxytocin, cord clamping)','active management|oxytocin|10 iu|10 unit|intramuscular|im injection|uterotonic|clamp|delayed cord clamp|cord clamp'),
+  C('Empty bladder','bladder|void|catheter|urinat',{x:0}),
+  C('Newborn care','newborn|apgar|dry|warm|cord|vitamin k|eye|identif|bracelet|weigh',{x:1})
+ ],
+ 'Fourth Stage of Labor (Recovery)':[
+  C('Fundus check & uterine massage','fundus|massage|firm|contract|uterine|uterus|boggy|involution|midline|umbilicus|tone|atony|height'),
+  C('Vital signs every 15 min for the first hour','vital|bp|blood pressure|pulse|temp|every 15|15 minute|30 minute|hourly|monitor|first hour|first 2 hour|2 hour|4 hour|observ|check'),
+  C('Observe lochia / bleeding / pad count','lochia|bleed|pad|blood|hemorrhage|clot|amount|saturat|rubra|vaginal discharge|pph|flow|soak',{negOk:true}),
+  C('Bladder emptying','bladder|void|urinat|urine|catheter|distend|pass urine|micturit|toilet|within 6'),
+  C('Perineal care / ice pack / pain relief','perine|ice|cold|hygiene|clean|pad|stitch|episiotomy|pain|analges|sitz|paracetamol|wound|suture|front to back|peri bottle|kegel|pelvic floor|wash'),
+  C('Breastfeeding initiation & bonding','breastfeed|latch|skin|bonding|newborn|colostrum|on demand|exclusive|nurs|suckl|engorge|nipple|let down|rooming|kangaroo|breast'),
+  C('Rest, fluids, nutrition & first ambulation','rest|sleep|fluid|drink|eat|diet|ambulat|walk|first time|assist|nutrition|food|protein|iron|hydrat|get up|out of bed|mobil'),
+  C('Danger signs to report','fever|heavy bleeding|severe pain|foul|dizz|clot|headache|blurr|pph|chill|calf|swelling|offensive|soaking|saturat|faint|palpitat|breathless|convuls|infection|danger|warning|sign',{negOk:true,re:[/\b(report|inform|tell|call|notify)\b.{0,40}\b(nurse|midwife|staff|doctor|bleed|pain|fever|discharge|sign|symptom)/]}),
+  C('Newborn care','newborn|baby|cord|warm|apgar|vitamin k|vaccine|bcg|opv|hepatitis|hep b|immuniz|bath|diaper|nappy|jaundice|weigh|identif|kangaroo|rooming|eye care|cord care'),
+  C('Follow-up / family planning','follow|visit|family planning|contracept|postnatal|iron|vitamin|checkup|check up|appointment|spacing|iud|pill|lactational|clinic|6 week|six week|40 day|return',{x:0}),
+  C('Postpartum exercises / Kegel','kegel|pelvic floor|exercise'),
+  C('Hand hygiene / personal hygiene','hand wash|handwash|hand hygiene|wash hand|hygiene|clean'),
+  C('Breast care / engorgement','breast care|engorge|nipple|bra|cracked'),
+  C('Emotional support / postpartum mood','blues|depress|mood|emotional|support|family|husband|reassur',{x:1})
+ ]
+};
+
+
+/* ---- Partograph scoring: each group = 1 point (fractional); extra wrong plots cost 0.5 of a point ---- */
+const PGEXP={
+ cervix:{1:4,3:5,5:6,7:7,9:8,11:9,12:10}, descent:{1:3,3:2,5:2,7:1,9:1,11:0,12:0},
+ fhr:{1:144,3:146,5:148,7:150,9:148,11:146,12:144},
+ liquor:{1:'I',3:'I',5:'I',7:'I',9:'C',11:'C',12:'C'}, moul:{5:'+'},
+ contr:{1:[3,'hatch'],3:[3,'hatch'],5:[4,'solid'],7:[4,'solid'],9:[5,'solid'],11:[5,'solid'],12:[5,'solid']},
+ time:{1:8,3:10,5:12,7:14,9:16,11:18,12:19}
+};
+const tmParse=s=>{ const m=String(s).toLowerCase().match(/(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|a\.m|p\.m)?/); if(!m) return null; let h=+m[1], mn=+(m[2]||0); if(m[3]&&/p/.test(m[3])&&h<12) h+=12; if(m[3]&&/a/.test(m[3])&&h===12) h=0; return {h,mn}; };
+function pgGrp(exp,got,ok,tol){
+  const ks=Object.keys(exp); let m=0; ks.forEach(k=>{ if(got[k]!==undefined) m+=+ok(exp[k],got[k]); });
+  const extra=Object.keys(got).filter(k=>!(k in exp)&&!(tol&&tol(+k,got[k]))).length;
+  return Math.max(0,(m-0.5*extra)/ks.length);
+}
+function scorePG(d){
+  const P=d.pg||{s:newPG(),h:{},i:''}, S=P.s, H=P.h||{}, I=norm(P.i||''), led=[];
+  const add=(l,p)=>led.push({label:l,pts:Math.round(Math.max(0,Math.min(1,p))*100)/100,max:1});
+  const hn=k=>norm(H[k]||''), n=k=>nums(hn(k));
+  add('Header – Name', has(hn('name'),'sarah')?1:0);
+  add('Header – Gravida', n('gravida').includes(3)?1:0);
+  add('Header – Para', n('para').includes(2)?1:0);
+  add('Header – Hospital no. (not mentioned → None)', no0(hn('hosp'))?1:0);
+  add('Header – Date of admission', n('date').includes(27)&&(n('date').includes(9)||n('date').includes(2026))?1:0);
+  add('Header – Time of admission', n('time').includes(8)?1:0);
+  const rn=n('rupt');
+  add('Header – Ruptured membranes (hours)', (rn.includes(2)&&rn.includes(30))||(rn.includes(14)&&rn.includes(30))||rn.includes(4.5)||rn.includes(4)||rn.includes(5)||no0(hn('rupt'))||/srom|spontaneous|rupture|intact/.test(hn('rupt'))?1:0);
+  add('Time row (clock time per hour column)', pgGrp(PGEXP.time,S.time,(a,b)=>{const p=tmParse(b); return p&&p.mn===0&&p.h%12===a%12;},()=>true));
+  add('Cervical dilatation (X)', pgGrp(PGEXP.cervix,S.cervix,(a,b)=>a===b));
+  add('Descent of head (O)', pgGrp(PGEXP.descent,S.descent,(a,b)=>a===b));
+  add('Fetal heart rate plot', pgGrp(PGEXP.fhr,S.fhr,(a,b)=>Math.abs(a-b)<=4));
+  add('Liquor (Intact → Clear after ROM)', pgGrp(PGEXP.liquor,S.liquor,(a,b)=>a===b,(k,v)=>(v==='I'&&k<=7)||(v==='C'&&k>=8)));
+  add('Moulding (+ at 12:00)', pgGrp(PGEXP.moul,S.moul,(a,b)=>a===b,(k,v)=>v==='0'));
+  add('Contractions (number & strength shape)', pgGrp(PGEXP.contr,S.contr,(a,b)=>b.n===a[0]?(b.st===a[1]?1:0.5):0));
+  const p=S.pulse[1], b=S.bp[1], pe=Object.keys(S.pulse).filter(k=>k!=='1').length+Object.keys(S.bp).filter(k=>k!=='1').length;
+  add('Pulse (dot) & BP (arrow) at admission', (p!==undefined&&Math.abs(p-86)<=4?0.5:0)+(b&&b.d!=null&&Math.abs(b.s-120)<=6&&Math.abs(b.d-80)<=6?0.5:0)-0.25*pe);
+  add('Temperature', nums(norm(S.temp[1]||'')).includes(36.8)?1:0);
+  add('Urine protein & acetone (negative)', (NEGT(norm(S.prot[1]||''),S.prot[1])?0.5:0)+(NEGT(norm(S.acet[1]||''),S.acet[1])?0.5:0));
+  const oth=[...Object.values(S.oxy),...Object.values(S.drops),...Object.values(S.drugs)];
+  add('No oxytocin / drugs / IV fluids (none in scenario)', (Object.keys(S.cervix).length>0&&oth.every(v=>/nil|none|^no\b|n\/a|^0$|^-$/i.test(v)))?1:0);
+  add('Interpretation – cervical progress vs alert/action line', (/alert|action/.test(I)&&/slow|delay|protract|prolong|cross|right|behind|1 cm|2 hour|progress/.test(I))?1:0);
+  add('Interpretation – fetal & maternal condition', (/fhr|fetal|heart/.test(I)&&/normal|reassur|within|stable|good|110|160/.test(I))?1:0);
+  return {ledger:led, sum:led.reduce((a,x)=>a+x.pts,0), max:led.length};
+}
+
+
+/* light mistake check: a stage answer made only of single words earns less trust */
+function scoreHE(items){
+  const raw=items.map(h=>h.value==='(not answered)'?'':h.value), cls=raw.map(clauseSplit);
+  return items.map((h,ix)=>{
+    const rubric=HE_RUBRIC[h.label]||[], othersCl=[].concat(...cls.filter((_,j)=>j!==ix));
+    let own=0, other=0; const missing=[], flags=[];
+    rubric.forEach(c=>{
+      if(hitConcept(cls[ix],c)){ own++; return; }
+      if(c.x!==0 && hitConcept(othersCl,c)) other++; else missing.push(c.label);
+    });
+    const cap=CFG.healthEdPerCategory;
+    let pts=own>0?Math.min(cap, own+Math.min(1,CFG.crossCredit*other)):0;
+    const wr=wrongHits(clauseSplit(raw[ix]),[...W_ALL,...(HE_WRONG[h.label]||[])]);
+    if(wr.length){ pts=Math.max(0,pts-Math.min(2,wr.length)); flags.push('unsafe advice: '+wr.join('; ')); }
+    reviewHits(cls[ix]).forEach(x=>flags.push('review: '+x));
+    const words=norm2(raw[ix]).split(' ').filter(Boolean).length;
+    if(words>220) flags.push('very long text (possible keyword stuffing)');
+    else if(cls[ix].length>=6&&cls[ix].filter(t=>t.split(' ').length<2).length>=cls[ix].length*0.7) flags.push('answer is only a list of single words (review)');
+    return {label:h.label, pts:Math.round(pts*10)/10, flag:flags.join(' | '), missing};
+  });
+}
+
+function evaluateSheet(data){
+  let earned=0, total=0, penalty=0;
+  const fixedLedger=[], labelCount={};
+  FIXED.forEach(([label,ok,sec])=>{
+    total++;
+    const q=data.qaPairs.find(x=>x.label.trim()===label && (!sec||x.section.startsWith(sec)));
+    const passed = q && q.value!=='(not answered)' && ok(norm(q.value),q.value);
+    if(passed) earned++;
+    labelCount[label]=(labelCount[label]||0)+1;
+    const dispLabel = labelCount[label]>1 ? `${label} (item ${labelCount[label]})` : label;
+    fixedLedger.push({label:dispLabel, pts:passed?1:0, max:1});
+  });
+  const ticks=(part,wanted)=>{
+    const q=data.qaPairs.find(x=>x.label.includes(part)); if(!q) return;
+    const picked=q.value==='(none selected)'?[]:q.value.split(', ').map(norm); let matched=0;
+    wanted.forEach(alts=>{
+      total++;
+      const got=picked.some(p=>alts.some(a=>p.includes(a)));
+      if(got) earned++;
+      fixedLedger.push({label:part+(wanted.length>1?' – '+alts[0]:''), pts:got?1:0, max:1});
+    });
+    picked.forEach(p=>{ if(wanted.some(alts=>alts.some(a=>p.includes(a)))) matched++; });
+    penalty += Math.max(0,(picked.length-matched)-CFG.extraTickTolerance)*0.5;
+  };
+  ticks('General appearance',[['tired']]);
+  ticks("Mother's complaints",[]);
+  const care=scoreCare(data.carePlan), he=scoreHE(data.healthEd), pg=scorePG(data);
+  const hePts=he.reduce((a,b)=>a+b.pts,0), heMax=CFG.healthEdPerCategory*he.length;
+  const r1=n=>Math.round(n*10)/10, W=CFG.marks;
+  const fixedMarks=Math.max(0,earned-penalty)/total*W.fixed;
+  const careMarks=Math.min(1,care.pts/CFG.carePlanMax)*W.care;
+  const heMarks=Math.min(1,hePts/heMax)*W.he, pgMarks=pg.sum/pg.max*W.pg;
+  const sum=fixedMarks+careMarks+heMarks+pgMarks, max=W.fixed+W.pg+W.care+W.he;
+  const coveredCareTopics=new Set(care.topics.map(t=>t.name));
+  const careLedger=[...care.topics.map(t=>({label:t.name, pts:r1(t.pts), max:cmax(t.name)})),
+    ...SCENARIO_TOPICS.filter(t=>!coveredCareTopics.has(t)).map(t=>({label:t, pts:0, max:cmax(t)}))];
+  const feedback={
+    pgLedger:pg.ledger.map(x=>({...x,pts:r1(x.pts)})), pgPts:r1(pg.sum), pgMax:pg.max,
+    fixedLedger, fixedEarned:earned, fixedTotal:total, fixedPenalty:penalty,
+    careLedger, carePts:r1(care.pts), careMax:CFG.carePlanMax, careFlags:[...care.review],
+    heLedger: he.map(h=>({label:h.label, pts:h.pts, max:CFG.healthEdPerCategory})), hePts:r1(hePts), heMax
+  };
+  return { earnedPoints:r1(sum), totalPossiblePoints:max, pct:Math.min(100,Math.round(sum/max*100)),
+    summary:`Main sheet ${r1(fixedMarks)}/${W.fixed} | Partograph ${r1(pgMarks)}/${W.pg} | Care plan ${r1(careMarks)}/${W.care} | Health education ${r1(heMarks)}/${W.he}`,
+    review:[...care.review,...he.filter(h=>h.flag).map(h=>'HE - '+h.label+': '+h.flag)], detail:{care,he,marks:{fixed:r1(fixedMarks),pg:r1(pgMarks),care:r1(careMarks),he:r1(heMarks)}}, feedback };
+}
+function breakdownHTML(s){
+  const d=s.detail, m=d.marks, W=CFG.marks, row=(a,b,sm)=>`<div class="stat-row"${sm?' style="font-size:.8rem;color:var(--muted)"':''}><span>${a}</span><span>${b}</span></div>`;
+  return '<div style="margin-top:12px">'+row('<b>Main sheet (history, exam, investigations)</b>',`${m.fixed}/${W.fixed}`)
+    + row('<b>Partograph</b>',`${m.pg}/${W.pg}`)
+    + row('<b>Nursing care plan</b>',`${m.care}/${W.care}`)
+    + d.care.topics.map(t=>row('• '+t.name,t.pts+' pts',1)).join('')
+    + row('<b>Health education</b>',`${m.he}/${W.he}`)
+    + d.he.map(h=>row(h.label,`${h.pts}/${CFG.healthEdPerCategory}`,1)).join('')+'</div>';
+}
+
+/* ---------------- PROFESSIONAL LAYER: safety, autosave, reliable sync ---------------- */
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const draftKey = () => 'labor_draft_'+window.studentInfo.name.toLowerCase()+'_'+window.studentInfo.group;
+const formFields = () => Array.from(document.querySelectorAll('#appContainer input, #appContainer textarea'));
+const isTick = e => e.type==='radio'||e.type==='checkbox';
+function saveDraft(){
+  if(finished||!window.studentInfo) return;
+  try{ localStorage.setItem(draftKey(), JSON.stringify({rows:document.querySelectorAll('#carePlanTable tbody tr').length, t:startTime, pg:PG, v:formFields().map(e=>isTick(e)?e.checked:e.value)})); }catch(x){}
+}
+function loadDraft(){
+  try{
+    const d=JSON.parse(localStorage.getItem(draftKey())||'null'); if(!d) return;
+    while(document.querySelectorAll('#carePlanTable tbody tr').length<d.rows) addCareRow();
+    formFields().forEach((e,i)=>{ const v=d.v[i]; if(v===undefined) return; if(isTick(e)) e.checked=!!v; else e.value=v; });
+    if(d.t) startTime=d.t;
+    if(d.pg){ PG=d.pg; drawPG(); }
+  }catch(x){}
+}
+function clearDraft(){ try{ localStorage.removeItem(draftKey()); }catch(x){} }
+function updateProgress(){
+  const d=collectData();
+  let tot=d.qaPairs.length+d.healthEd.length+3+8;
+  let done=d.qaPairs.filter(q=>q.value&&q.value!=='(not answered)'&&q.value!=='(none selected)').length
+    +d.healthEd.filter(h=>h.value!=='(not answered)').length+Math.min(3,d.carePlan.length)+Math.min(8,Math.round(pgCount()/8));
+  document.getElementById('topProg').textContent=Math.round(done/tot*100)+'%';
+  return {done,tot};
+}
+['input','change'].forEach(ev=>container.addEventListener(ev,()=>{ saveDraft(); updateProgress(); }));
+window.addEventListener('beforeunload',e=>{ if(window.studentInfo && !finished){ e.preventDefault(); e.returnValue=''; } });
+['studentName','studentGroup'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{ if(e.key==='Enter') startSheet(); }));
+
+/* Reliable delivery to Google Sheets/Drive: retries automatically if the student is offline */
+const pendingList = () => { try{ return JSON.parse(localStorage.getItem('labor_pending')||'[]'); }catch(e){ return []; } };
+const savePending = l => { try{ localStorage.setItem('labor_pending',JSON.stringify(l)); }catch(e){} };
+const setSync = m => { const el=document.getElementById('syncState'); if(el) el.textContent=m; };
+const sendItem = it => fetch(it.url,{method:'POST',mode:'no-cors',cache:'no-cache',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(it.payload)});
+/* no-cors sending cannot read the reply, so ask the server afterwards whether the row + PDF were really saved */
+async function verifySave(key){
+  if(!key) return; setSync('Sent – checking that the server saved it…');
+  for(let i=0;i<8;i++){
+    await new Promise(r=>setTimeout(r,i?3000:1500));
+    const r=await srv({action:'status',key});
+    if(r&&r.submitted){ setSync(r.pdf?'✔ Saved on the server (score in the sheet + PDF in Drive)':'✔ Score saved on the server (PDF was not generated)'); return; }
+  }
+  setSync('⚠ Sent but NOT confirmed by the server – tell your supervisor (check the Apps Script deployment).');
+}
+async function flushPending(){
+  if(!navigator.onLine) return;
+  let l=pendingList();
+  for(const it of l.slice()){
+    try{ await sendItem(it); l=l.filter(x=>x.id!==it.id); savePending(l); verifySave(it.payload&&it.payload.key); }
+    catch(e){ setSync('⚠ Not sent yet – it will retry automatically when the connection is back'); break; }
+  }
+}
+function queueSync(payload,url){
+  if(!url||!url.startsWith('http')) return;
+  const it={id:Date.now(),url,payload};
+  sendItem(it).then(()=>verifySave(payload.key))
+    .catch(()=>{ const l=pendingList(); l.push(it); savePending(l); setSync('⚠ Not sent yet – it will retry automatically when the connection is back'); });
+}
+window.addEventListener('online',flushPending); window.addEventListener('load',flushPending);
+function clearRecords(){
+  if(!confirm('Delete ALL locally stored student records on this device? This cannot be undone.')) return;
+  localStorage.removeItem('labor_records'); document.querySelector('.modal-overlay')?.remove(); openFacultyPanel();
+}
+async function sha256(s){
+  const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
+/* ---------------- ENGLISH-ONLY + ONE-ENTRY LOCK ---------------- */
+const AR = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/, ARg = new RegExp(AR.source,'g');
+function toast(m){
+  let t=document.getElementById('toastMsg');
+  if(!t){ t=document.createElement('div'); t.id='toastMsg';
+    t.style.cssText='position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#c0392b;color:#fff;padding:10px 18px;border-radius:8px;z-index:200;font-size:.9rem;box-shadow:0 4px 14px rgba(0,0,0,.25)';
+    document.body.appendChild(t); }
+  t.textContent=m; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.display='none'; },2600);
+}
+document.addEventListener('input',e=>{
+  const t=e.target; if(!t||!t.matches||!t.matches('input[type=text],textarea')) return;
+  t.style.outline='';
+  if(AR.test(t.value)){ t.value=t.value.replace(ARg,''); toast('English only – Arabic characters are not accepted.'); }
+},true);
+const entKey = (n,g) => 'labor|'+String(n).trim().toLowerCase().replace(/\s+/g,' ')+'|'+String(g).trim().toLowerCase();
+const getEntries = () => { try{ return JSON.parse(localStorage.getItem('labor_entries')||'[]'); }catch(e){ return []; } };
+const setEntries = l => { try{ localStorage.setItem('labor_entries',JSON.stringify(l)); }catch(e){} };
+function markSubmitted(){
+  const k=entKey(window.studentInfo.name,window.studentInfo.group);
+  setEntries(getEntries().map(e=>e.key===k?{...e,submitted:true}:e));
+}
+function entriesHTML(){
+  const l=getEntries(); if(!l.length) return '';
+  return '<h3 style="margin:18px 0 6px;color:var(--primary-dark)">Entry log (re-entry control)</h3><table class="records"><thead><tr><th>Name</th><th>Group</th><th>Status</th><th>Action</th></tr></thead><tbody>'
+    + l.map((e,i)=>`<tr><td>${esc(e.name)}</td><td>${esc(e.group)}</td><td>${e.submitted?'Submitted':'In progress'}</td><td><button class="small-btn" onclick="releaseEntry(${i})">Allow re-entry</button></td></tr>`).join('')
+    + '</tbody></table>';
+}
+async function releaseEntry(i){
+  const l=getEntries(), e=l[i];
+  if(!e || !confirm('Allow '+e.name+' (Group '+e.group+') to enter the sheet again?')) return;
+  l.splice(i,1); setEntries(l); srv({action:'release',key:e.key,token:window._facTok}); document.querySelector('.modal-overlay')?.remove(); openFacultyPanel();
+}
+
+
+/* ---------------- IN-PAGE DIALOG (confirm/prompt can be blocked in some browsers) ---------------- */
+function uiAsk(o){ return new Promise(res=>{
+  const ov=document.createElement('div'); ov.className='modal-overlay'; ov.style.zIndex=300;
+  const pre=(o.presets||[]).map(p=>`<button type="button" class="small-btn" data-v="${esc(p)}">${esc(p)}</button>`).join(' ');
+  ov.innerHTML=`<div class="modal-box"><h2 style="font-size:1.05rem">${esc(o.title||'')}</h2>${o.text?`<p style="white-space:pre-line;font-size:.9rem">${esc(o.text)}</p>`:''}${o.input?`<input type="text" dir="auto" id="uiAskIn" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:6px;font-size:.95rem" placeholder="${esc(o.placeholder||'')}" value="${esc(o.value||'')}"><div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${pre}</div>`:''}<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap">${o.input&&o.value?'<button type="button" class="small-btn" style="background:var(--danger)" data-a="clear">Clear</button>':''}<button type="button" class="small-btn" style="background:#8a9691" data-a="no">${esc(o.cancel||'Cancel')}</button><button type="button" class="small-btn" data-a="ok">${esc(o.ok||'OK')}</button></div></div>`;
+  document.body.appendChild(ov);
+  const inp=ov.querySelector('#uiAskIn'); if(inp){ inp.focus(); inp.select(); }
+  const done=v=>{ ov.remove(); res(v); };
+  ov.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return;
+    if(b.dataset.v!==undefined){ done(b.dataset.v); return; }
+    const a=b.dataset.a; if(a==='ok') done(o.input?inp.value:true); else if(a==='clear') done(''); else done(o.input?null:false); });
+  ov.addEventListener('keydown',e=>{ if(e.key==='Enter'&&inp) done(inp.value); if(e.key==='Escape') done(o.input?null:false); });
+}); }
+
+/* ---------------- ACTIONS ---------------- */
+async function finishSheet(){
+  if(finished||finishSheet.busy){ toast('You have already submitted this sheet.'); return; }
+  document.querySelectorAll('#appContainer .qa-input > input[type=text]').forEach(i=>{ i.style.outline=i.value.trim()?'':'2px solid var(--danger)'; });
+  const pr=updateProgress();
+  const ok=await uiAsk({title:'Submit the sheet?', ok:'Submit', cancel:'Go back',
+    text:'You have answered '+pr.done+' of '+pr.tot+' items ('+(pr.tot-pr.done)+' left blank).\nReminder: write None in every text field that is not mentioned in the scenario (select No for Yes/No items). Blank fields are outlined in red.\nYou will not be able to edit after submitting.'});
+  if(!ok) return;
+  finishSheet.busy=true;
+  let data, scoreObj, pgImg=null;
+  try{
+    pgImg = await Promise.race([pgPNG(), new Promise(r=>setTimeout(()=>r(null),4000))]);
+    data = collectData(); scoreObj = evaluateSheet(data);
+  }catch(err){ console.error(err); finishSheet.busy=false; toast('Could not submit: '+(err&&err.message||err)); return; }
+  window.lastPgImg=pgImg; window.lastData=data; window.lastScore=scoreObj; finished=true;
+
+  document.querySelectorAll('#appContainer input, #appContainer textarea').forEach(el=> el.disabled = true);
+  document.getElementById('btnScore').disabled=false; document.getElementById('btnFinish').disabled=true;
+  try{ clearDraft(); markSubmitted(); }catch(e){}
+
+  const record = {
+    name: window.studentInfo.name, group: window.studentInfo.group, date: window.studentInfo.date,
+    score: scoreObj.pct, earned: scoreObj.earnedPoints, total: scoreObj.totalPossiblePoints, summary: scoreObj.summary, review: scoreObj.review,
+    timeSpentMin: startTime ? Math.round((Date.now()-startTime)/60000) : 0,
+    qaPairs: data.qaPairs, carePlan: data.carePlan, healthEd: data.healthEd, pg: data.pg, pgImg
+  };
+  try{ const records = JSON.parse(localStorage.getItem('labor_records')||'[]'); records.push(record);
+    try{ localStorage.setItem('labor_records', JSON.stringify(records)); }
+    catch(e){ try{ records[records.length-1]={...record,pgImg:null}; localStorage.setItem('labor_records', JSON.stringify(records)); }catch(e2){} } }catch(e){}
+
+  // PDF is optional: if the PDF library did not load, the score is still shown and sent
+  let base64Data='', pdfOk=false;
+  try{ const doc=buildPDF(record); if(doc){ base64Data=doc.output('datauristring').split(',')[1]; pdfOk=true; } }catch(e){ console.error(e); }
+  const fileName = `Labor_Sheet_${record.name.replace(/\s+/g,'_')}_Group_${record.group}.pdf`;
+  try{
+    queueSync({ key:entKey(record.name,record.group), name:record.name, group:record.group, score:record.score+"% ("+record.earned+"/"+record.total+")", date:record.date,
+      sheetName:SHEET_NAME, sheet:SHEET_NAME, sheetType:'labor', pdfBase64:base64Data, fileName }, SCRIPT_URL);
+  }catch(e){ console.error(e); }
+
+  showModal(`<h2>✔ Sheet Submitted Successfully</h2>
+    <p>Thank you, <b>${esc(window.studentInfo.name)}</b>. Your clinically evaluated score is:</p>
+    <div class="score-big">${scoreObj.pct}%</div>
+    <p style="text-align:center;color:var(--muted);">Score: ${scoreObj.earnedPoints} / ${scoreObj.totalPossiblePoints} marks <span id="syncState">Sending to faculty…</span></p>
+    ${pdfOk?'':'<p style="color:var(--danger);font-size:.85rem;text-align:center">PDF library could not load (check your internet). Your answers and score were saved.</p>'}`);
+}
+
+function showScore(){
+  const data = finished ? window.lastData : collectData();
+  const scoreObj = evaluateSheet(data);
+  showModal(`<h2>📊 Clinical Scenario Evaluation</h2>
+    <div class="score-big">${scoreObj.pct}%</div>
+    <p style="text-align:center;color:var(--muted);">Score: <b>${scoreObj.earnedPoints}</b> out of <b>${scoreObj.totalPossiblePoints}</b> marks<br><i>(Evaluated based on clinical correctness for Mrs. Sarah Mahmoud Ali)</i></p>${breakdownHTML(scoreObj)}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px;">
+      <button class="small-btn" style="background:#3f7cac" onclick="this.closest('.modal-overlay').remove();showWhyScore();">🔍 Why this score? What am I missing?</button>
+      <button class="small-btn" style="background:#8e6bbf" onclick="this.closest('.modal-overlay').remove();showImprovementTips();">💡 How can I improve?</button>
+    </div>`);
+}
+
+function showWhyScore(){
+  const data = finished ? window.lastData : collectData();
+  const s = evaluateSheet(data), fb = s.feedback, W = CFG.marks;
+  const row=(a,b,sm)=>`<div class="stat-row"${sm?' style="font-size:.82rem"':''}><span>${a}</span><span>${b}</span></div>`;
+  const subtotal=(a,b)=>`<div class="stat-row" style="font-weight:600;border-bottom:2px solid var(--border);padding-top:4px;"><span>${a}</span><span>${b}</span></div>`;
+
+  let html = `<h2>🔍 Why this score?</h2><p style="color:var(--muted);font-size:.85rem">A point-by-point breakdown of how your total was calculated.</p>`;
+
+  html += `<div class="block-subtitle">1) Main Sheet</div>`;
+  html += fb.fixedLedger.map(it=>row(esc(it.label), `${it.pts}/${it.max}`, true)).join('');
+  html += subtotal('Subtotal', `${Math.max(0,r1(fb.fixedEarned-fb.fixedPenalty))}/${fb.fixedTotal} raw → ${s.detail.marks.fixed}/${W.fixed} marks`);
+
+  html += `<div class="block-subtitle" style="margin-top:14px">2) Partograph</div>`;
+  html += fb.pgLedger.map(it=>row(esc(it.label), `${it.pts}/${it.max}`, true)).join('');
+  html += subtotal('Subtotal', `${fb.pgPts}/${fb.pgMax} raw → ${s.detail.marks.pg}/${W.pg} marks`);
+
+  html += `<div class="block-subtitle" style="margin-top:14px">3) Nursing Care Plan</div>`;
+  html += fb.careLedger.map(it=>row(esc(it.label), `${it.pts}/${it.max}`, true)).join('');
+  html += subtotal('Subtotal', `${fb.carePts}/${fb.careMax} raw (capped) → ${s.detail.marks.care}/${W.care} marks`);
+
+  html += `<div class="block-subtitle" style="margin-top:14px">4) Health Education</div>`;
+  html += fb.heLedger.map(it=>row(esc(it.label), `${it.pts}/${it.max}`, true)).join('');
+  html += subtotal('Subtotal', `${fb.hePts}/${fb.heMax} raw → ${s.detail.marks.he}/${W.he} marks`);
+
+  html += `<div class="stat-row" style="font-weight:700;font-size:1rem;border-top:2px solid var(--primary);margin-top:10px;padding-top:8px;"><span>Total</span><span>${s.earnedPoints}/${s.totalPossiblePoints} marks (${s.pct}%)</span></div>`;
+
+  showModal(html);
+}
+const r1=n=>Math.round(n*10)/10;
+
+function showImprovementTips(){
+  const data = finished ? window.lastData : collectData();
+  const s = evaluateSheet(data), fb = s.feedback;
+  const tips=[];
+  const missedCount = fb.fixedLedger.filter(i=>i.pts<i.max).length;
+  if(missedCount) tips.push(`Re-check the scenario carefully — ${missedCount} item(s) in the main sheet (history, exam, or investigations) were incorrect or left blank.`);
+  if(fb.fixedPenalty>0) tips.push('You selected some checklist items (Warning Signs / Minor Discomforts) that are not supported by the scenario — only tick what the case actually describes.');
+  const missingCareTopics = fb.careLedger.filter(t=>t.pts===0).length;
+  if(missingCareTopics) tips.push(`Your care plan is missing rows for ${missingCareTopics} clinically relevant patient problem(s) from this scenario — review the case for additional issues to address.`);
+  if(fb.careFlags.some(f=>/related to|evidenced by/.test(f))) tips.push('Write every nursing diagnosis in full NANDA format: Problem related to Cause as evidenced by Data (abbreviations "r/t" and "AEB" are accepted).');
+  if(fb.careFlags.some(f=>/order/.test(f))) tips.push('Order your interventions correctly: Assessment actions first (assess/monitor/check) → Nursing actions → Medications last.');
+  if(fb.careFlags.some(f=>/unsafe/.test(f))) tips.push('Remove any unsafe advice (e.g. supine position, increasing salt, stopping medication, NSAIDs) — this is penalized even if the rest of the row is correct.');
+  if(fb.careFlags.some(f=>/no diagnosis/.test(f))) tips.push('Every care-plan row needs a nursing diagnosis — don\u2019t leave the Diagnosis column blank.');
+  const weakPG = fb.pgLedger.filter(i=>i.pts<0.6);
+  if(weakPG.length) tips.push('Re-check these partograph items against the scenario: '+weakPG.map(i=>i.label.replace(/ \(.*\)/,'')).join('; ')+'.');
+  if(fb.careFlags.some(f=>/Priority/.test(f))) tips.push('Start the care plan with the priority problem of a woman in active labor, written as: Problem related to cause as evidenced by data.');
+  if(fb.careFlags.some(f=>/evidence/.test(f))) tips.push('Use data taken from the scenario after "as evidenced by" (times, values, findings).');
+  const weakHE = fb.heLedger.filter(h=>h.pts<h.max);
+  if(weakHE.length) tips.push('Add more specific, scenario-relevant detail to these Health Education categories: '+weakHE.map(h=>h.label).join(', ')+'.');
+  if(!tips.length) tips.push('Strong submission — no major gaps found. Keep this same level of completeness and structure next time.');
+  showModal(`<h2>💡 How to improve</h2><ol style="font-size:.9rem;padding-left:20px;line-height:1.6;">${tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ol>`);
+}
+
+
+function showStats(){
+  const data = finished ? window.lastData : collectData();
+  let html = `<h2>📈 Statistics</h2>`;
+  const bySection = {};
+  data.qaPairs.forEach(q=>{
+    bySection[q.section] = bySection[q.section] || {total:0, filled:0};
+    bySection[q.section].total++;
+    if(q.value && q.value!=='(not answered)') bySection[q.section].filled++;
+  });
+  Object.keys(bySection).forEach(sec=>{
+    const s = bySection[sec];
+    html += `<div class="stat-row"><span>${sec}</span><span>${s.filled}/${s.total}</span></div>`;
+  });
+  html += `<div class="stat-row"><span>Partograph entries plotted</span><span>${pgCount()}</span></div>`;
+  html += `<div class="stat-row"><span>Nursing Care Plan rows filled</span><span>${data.carePlan.length}</span></div>`;
+  const heFilled = data.healthEd.filter(h=>h.value!=='(not answered)').length;
+  html += `<div class="stat-row"><span>Health Education categories</span><span>${heFilled}/${data.healthEd.length}</span></div>`;
+  if(startTime) html += `<div class="stat-row"><span>Time spent</span><span>${Math.round((Date.now()-startTime)/60000)} min</span></div>`;
+  showModal(html);
+}
+
+function showModal(innerHTML){
+  const overlay = document.createElement('div');
+  overlay.className='modal-overlay';
+  overlay.innerHTML = `<div class="modal-box">${innerHTML}<button class="close" onclick="this.closest('.modal-overlay').remove()">Close</button></div>`;
+  document.body.appendChild(overlay);
+}
+
+/* ---------------- PARTOGRAPH (interactive SVG) ---------------- */
+const PGCW=58, PGX0=150, PGW=PGX0+PGCW*12+26;
+const LQ={C:['#d6ecff','#0d47a1','Clear'],M:['#9ccc65','#1b5e20','Meconium'],B:['#ef5350','#ffffff','Blood'],I:['#e0e0e0','#333333','Intact'],A:['#ffffff','#333333','Absent']};
+const PGR=[
+ {id:'fhr',label:['Fetal Heart Rate','(beats/min)'],h:240,min:80,max:200,step:2},
+ {id:'liquor',label:['Liquor'],h:24},{id:'moul',label:['Moulding'],h:24},
+ {id:'cx',label:['Cervix (cm) [X]','Descent of head [O]'],h:300},
+ {id:'hours',label:['Hours'],h:22},{id:'time',label:['Time'],h:28},
+ {id:'contr',label:['Contractions','per 10 min'],h:110},
+ {id:'oxy',label:['Oxytocin U/L'],h:24},{id:'drops',label:['Drops / min'],h:24},
+ {id:'drugs',label:['Drugs given','and IV fluids'],h:64},
+ {id:'pb',label:['Pulse [dot]','and BP [arrow]'],h:240,min:60,max:180,step:2},
+ {id:'temp',label:['Temp. °C'],h:26},{id:'prot',label:['Urine protein'],h:24},
+ {id:'acet',label:['Urine acetone'],h:24},{id:'vol',label:['Urine volume'],h:24}
+];
+let PGH=0;
+(function(){ let y=8; PGR.forEach(r=>{ r.y0=y; r.y1=y+r.h; y+=r.h+((r.id==='cx'||r.id==='hours')?0:8); }); PGH=y; })();
+const newPG=()=>({cervix:{},descent:{},fhr:{},liquor:{},moul:{},contr:{},pulse:{},bp:{},temp:{},prot:{},acet:{},vol:{},oxy:{},drops:{},drugs:{},time:{}});
+let PG=newPG(), pgTool='cx'; const pgHist=[];
+const pgR=id=>PGR.find(r=>r.id===id), pgGX=c=>PGX0+c*PGCW, pgYv=(r,v,mn,mx)=>r.y0+(mx-v)*r.h/(mx-mn);
+const PGHINT={cx:'X = cervical dilatation (0–10 cm). Click the cervix row at the right height inside the correct hour column.',desc:'O = descent of the fetal head (0–5, same grid as cm 0–5, see blue numbers on the right).',fhr:'FHR: click the fetal-heart-rate row at the value; dots are joined automatically.',pulse:'Pulse: click the pulse/BP row at the pulse value (dot).',bp:'BP arrow: click the SYSTOLIC level, then the DIASTOLIC level in the same column.',erase:'Eraser: click the entry you want to remove.'};
+const TXT=['time','temp','drugs','oxy','drops','prot','acet','vol'];
+const TXTPRE={prot:['Neg','+','++','+++'],acet:['Neg','+','++','+++'],oxy:['Nil'],drops:['Nil'],drugs:['Nil']};
+const TXTPH={time:'e.g. 8:00',temp:'e.g. 36.8',drugs:'Drug / IV fluid given (Nil if none)',oxy:'Units per litre (Nil if none)',drops:'Drops per minute (Nil if none)',prot:'Neg / + / ++ / +++',acet:'Neg / + / ++ / +++',vol:'Amount in ml'};
+const TXTHINT={time:'Time tool: click the Time row in an hour column and type the clock time (e.g. 8:00).',temp:'Temp tool: click the Temp row and type the temperature in °C.',drugs:'Medication tool: click the "Drugs given and IV fluids" row in the hour column, then type the drug / fluid (Nil if none).',oxy:'Oxytocin tool: click the Oxytocin row and type units per litre (Nil if none).',drops:'Drops tool: click the Drops/min row and type the rate (Nil if none).',prot:'Urine protein tool: click the Urine protein row and choose Neg / + / ++ / +++.',acet:'Urine acetone tool: click the Urine acetone row and choose Neg / + / ++ / +++.',vol:'Urine volume tool: click the Urine volume row and type the amount in ml.'};
+const pgHintFor=t=>PGHINT[t]||(t.startsWith('txt:')?TXTHINT[t.slice(4)]:t.startsWith('liq')?'Liquor: click the Liquor row in the hour column (I = intact membranes, C = clear, M = meconium, B = blood, A = absent).':t.startsWith('mou')?'Moulding: click the Moulding row (0, +, ++, +++).':'Contractions: choose the shape by duration, then click the row that equals the number of contractions per 10 min – all rows below are filled.');
+
+function drawPG(){
+  const w=document.getElementById('pgWrap'); if(!w) return;
+  const sT=(x,y,t,o={})=>`<text x="${x}" y="${y}" font-size="${o.s||10}" font-family="Segoe UI,Arial,sans-serif" fill="${o.f||'#333'}" text-anchor="${o.a||'middle'}"${o.b?' font-weight="700"':''}${o.r?` transform="rotate(${o.r} ${x} ${y})"`:''}>${esc(t)}</text>`;
+  const sL=(a,b,c,d,col='#bbb',sw=.8,da='')=>`<line x1="${a}" y1="${b}" x2="${c}" y2="${d}" stroke="${col}" stroke-width="${sw}"${da?` stroke-dasharray="${da}"`:''}/>`;
+  let s=`<defs><pattern id="pDot" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.3" fill="#333"/></pattern><pattern id="pHat" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#333" stroke-width="2.4"/></pattern></defs><rect width="${PGW}" height="${PGH}" fill="#fff"/>`;
+  const x1=pgGX(12);
+  PGR.forEach(r=>{
+    s+=`<rect x="${PGX0}" y="${r.y0}" width="${PGCW*12}" height="${r.h}" fill="${r.id==='hours'?'#eee':'#fff'}" stroke="#222" stroke-width="1.4"/>`;
+    for(let i=1;i<12;i++) s+=sL(pgGX(i),r.y0,pgGX(i),r.y1);
+    r.label.forEach((t,i)=>{ s+=sT(PGX0-32,r.y0+r.h/2+3+(i-(r.label.length-1)/2)*11,t,{a:'end',s:9,b:1,f:'#222'}); });
+    if(r.min!==undefined) for(let v=r.min;v<=r.max;v+=10){ const y=pgYv(r,v,r.min,r.max); if(v>r.min&&v<r.max) s+=sL(PGX0,y,x1,y); s+=sT(PGX0-5,y+3,v,{a:'end',s:8}); }
+    if(r.id==='cx') for(let v=0;v<=10;v++){ const y=pgYv(r,v,0,10); if(v>0&&v<10) s+=sL(PGX0,y,x1,y); s+=sT(PGX0-5,y+3,v,{a:'end',s:9}); if(v<=5) s+=sT(x1+6,y+3,v,{a:'start',s:9,f:'#0d47a1',b:1}); }
+    if(r.id==='hours') for(let c=1;c<=12;c++) s+=sT(pgGX(c-1)+PGCW/2,r.y0+15,c,{s:11,b:1});
+    if(r.id==='contr'){ for(let i=1;i<5;i++) s+=sL(PGX0,r.y0+i*22,x1,r.y0+i*22); for(let k=1;k<=5;k++) s+=sT(PGX0-5,r.y1-(k-1)*22-7,k,{a:'end',s:9}); }
+  });
+  const cr=pgR('cx'), P=(c,v)=>[pgGX(c)+PGCW/2,pgYv(cr,v,0,10)];
+  const a1=P(0,4),a2=P(6,10),b1=P(4,4),b2=P(10,10), ang=Math.atan2(a2[1]-a1[1],a2[0]-a1[0])*180/Math.PI;
+  s+=sL(a1[0],a1[1],a2[0],a2[1],'#111',1.8)+sL(b1[0],b1[1],b2[0],b2[1],'#111',1.8)
+   +sT((a1[0]+a2[0])/2-4,(a1[1]+a2[1])/2-6,'Alert',{s:11,b:1,r:ang})+sT((b1[0]+b2[0])/2-4,(b1[1]+b2[1])/2-6,'Action',{s:11,b:1,r:ang});
+  const ks=o=>Object.keys(o).map(Number).sort((a,b)=>a-b), X=c=>pgGX(c-1)+PGCW/2;
+  const line=(o,f,col,da)=>{ const k=ks(o); if(k.length>1) s+=`<polyline points="${k.map(c=>X(c)+','+f(o[c])).join(' ')}" fill="none" stroke="${col}" stroke-width="1.6"${da?` stroke-dasharray="${da}"`:''}/>`; };
+  const fr=pgR('fhr'), fy=v=>pgYv(fr,v,80,200), cy=v=>pgYv(cr,v,0,10), pr=pgR('pb'), py=v=>pgYv(pr,v,60,180);
+  line(PG.fhr,fy,'#111'); ks(PG.fhr).forEach(c=>{ s+=`<circle cx="${X(c)}" cy="${fy(PG.fhr[c])}" r="3.8" fill="#111"/>`; });
+  line(PG.cervix,cy,'#b71c1c'); line(PG.descent,cy,'#0d47a1','5 3');
+  ks(PG.cervix).forEach(c=>{ const x=X(c),y=cy(PG.cervix[c]); s+=`<path d="M${x-6} ${y-6}L${x+6} ${y+6}M${x+6} ${y-6}L${x-6} ${y+6}" stroke="#b71c1c" stroke-width="2.6"/>`; });
+  ks(PG.descent).forEach(c=>{ s+=`<circle cx="${X(c)}" cy="${cy(PG.descent[c])}" r="6" fill="#fff" stroke="#0d47a1" stroke-width="2.4"/>`; });
+  line(PG.pulse,py,'#c2185b'); ks(PG.pulse).forEach(c=>{ s+=`<circle cx="${X(c)}" cy="${py(PG.pulse[c])}" r="4" fill="#c2185b"/>`; });
+  ks(PG.bp).forEach(c=>{ const b=PG.bp[c], x=X(c)+8, ys=py(b.s); if(b.d===null){ s+=`<circle cx="${x}" cy="${ys}" r="2.5" fill="#0d47a1"/>`; return; } const yd=py(b.d);
+    s+=sL(x,ys,x,yd,'#0d47a1',2)+`<polygon points="${x},${ys-2} ${x-4.5},${ys+7} ${x+4.5},${ys+7}" fill="#0d47a1"/><polygon points="${x},${yd+2} ${x-4.5},${yd-7} ${x+4.5},${yd-7}" fill="#0d47a1"/>`; });
+  const lr=pgR('liquor'), mr=pgR('moul'), tr=pgR('contr');
+  ks(PG.liquor).forEach(c=>{ const m=LQ[PG.liquor[c]]; s+=`<rect x="${pgGX(c-1)+1}" y="${lr.y0+1}" width="${PGCW-2}" height="${lr.h-2}" fill="${m[0]}"/>`+sT(X(c),lr.y0+17,PG.liquor[c],{s:13,b:1,f:m[1]}); });
+  ks(PG.moul).forEach(c=>{ s+=sT(X(c),mr.y0+17,PG.moul[c],{s:14,b:1}); });
+  ks(PG.contr).forEach(c=>{ const q=PG.contr[c]; for(let k=1;k<=q.n;k++) s+=`<rect x="${pgGX(c-1)+4}" y="${tr.y1-k*22+1}" width="${PGCW-8}" height="20" fill="${q.st==='dot'?'url(#pDot)':q.st==='hatch'?'url(#pHat)':'#333'}" stroke="#333" stroke-width=".8"/>`; });
+  ['time','oxy','drops','temp','prot','acet','vol'].forEach(id=>{ const r=pgR(id); ks(PG[id]).forEach(c=>{ let t=String(PG[id][c]); if(t.length>10) t=t.slice(0,9)+'…'; s+=sT(X(c),r.y0+r.h/2+4,t,{s:11,b:1}); }); });
+  { const r=pgR('drugs'); ks(PG.drugs).forEach(c=>{ const ls=(String(PG.drugs[c]).match(/.{1,9}/g)||[]).slice(0,4); ls.forEach((t,i)=>{ s+=sT(X(c),r.y0+r.h/2+3+(i-(ls.length-1)/2)*11,t,{s:9,b:1}); }); }); }
+  w.innerHTML=`<svg id="pgSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PGW} ${PGH}" style="width:100%;min-width:720px;height:auto;cursor:crosshair;display:block">${s}</svg>`;
+}
+function pgLoc(ev){
+  const svg=document.getElementById('pgSvg'); if(!svg) return null;
+  const p=svg.createSVGPoint(); p.x=ev.clientX; p.y=ev.clientY; const q=p.matrixTransform(svg.getScreenCTM().inverse());
+  const c=Math.floor((q.x-PGX0)/PGCW), r=PGR.find(r=>q.y>=r.y0&&q.y<=r.y1);
+  return (c>=0&&c<12&&r)?{k:c+1,r,y:q.y}:null;
+}
+const pgVal=(r,y)=>Math.max(r.min,Math.min(r.max,Math.round((r.max-(y-r.y0)*(r.max-r.min)/r.h)/r.step)*r.step));
+const pgCm=(r,y,mx)=>Math.max(0,Math.min(mx,Math.round(10-(y-r.y0)/30)));
+function pgMut(fn){ pgHist.push(JSON.stringify(PG)); if(pgHist.length>60) pgHist.shift(); fn(); drawPG(); saveDraft(); updateProgress(); }
+function pgUndo(){ if(finished||!pgHist.length) return; PG=JSON.parse(pgHist.pop()); drawPG(); saveDraft(); updateProgress(); }
+async function pgClear(){ if(finished) return; if(!(await uiAsk({title:'Clear the partograph?',text:'Clear everything you plotted on the partograph?',ok:'Clear'}))) return; pgMut(()=>{ PG=newPG(); }); }
+async function pgAutoTime(){
+  if(finished) return; const v=await uiAsk({title:'Auto hours',text:'Clock time of hour column 1. The other columns are filled hourly.',input:1,placeholder:'e.g. 8:00'}); if(v===null) return;
+  const p=tmParse(v); if(!p){ toast('Please enter a valid time.'); return; }
+  pgMut(()=>{ for(let c=1;c<=12;c++) PG.time[c]=((p.h+c-1)%24)+':'+String(p.mn).padStart(2,'0'); });
+}
+function pgErase(id,k,y,r){
+  const C=[], add=(o,yy)=>{ if(o[k]!==undefined) C.push([o,yy]); };
+  if(id==='cx'){ add(PG.cervix,pgYv(r,PG.cervix[k],0,10)); add(PG.descent,pgYv(r,PG.descent[k],0,10)); }
+  else if(id==='pb'){ add(PG.pulse,pgYv(r,PG.pulse[k],60,180)); add(PG.bp,pgYv(r,(PG.bp[k]||{}).s,60,180)); }
+  else { const o={fhr:PG.fhr,liquor:PG.liquor,moul:PG.moul,contr:PG.contr}[id]||PG[id]; if(o) add(o,y); }
+  if(!C.length) return; C.sort((a,b)=>Math.abs(a[1]-y)-Math.abs(b[1]-y)); delete C[0][0][k];
+}
+async function pgClick(ev){
+  if(finished) return; const o=pgLoc(ev); if(!o) return; const {k,r,y}=o, id=r.id, t=pgTool;
+  if(id==='hours') return;
+  if(t==='erase'){ pgMut(()=>pgErase(id,k,y,r)); return; }
+  if(TXT.includes(id)){
+    if(t!=='txt:'+id) pgSel('txt:'+id);
+    const v=await uiAsk({title:r.label.join(' ')+' – hour '+k, input:1, value:PG[id][k]||'', placeholder:TXTPH[id]||'Type here', presets:TXTPRE[id]});
+    if(v===null) return; if(AR.test(v)){ toast('English only – Arabic characters are not accepted.'); return; }
+    pgMut(()=>{ if(v.trim()) PG[id][k]=v.trim().slice(0,40); else delete PG[id][k]; }); return;
+  }
+  const want=t.startsWith('txt:')?'txt':(t==='cx'||t==='desc')?'cx':t==='fhr'?'fhr':(t==='pulse'||t==='bp')?'pb':t.startsWith('liq')?'liquor':t.startsWith('mou')?'moul':'contr';
+  if(want!==id){ toast('This tool is not used in that row.'); return; }
+  pgMut(()=>{
+    if(t==='fhr') PG.fhr[k]=pgVal(r,y);
+    else if(t==='pulse') PG.pulse[k]=pgVal(r,y);
+    else if(t==='bp'){ const b=PG.bp[k], v=pgVal(r,y);
+      if(b&&b.d===null){ b.d=Math.min(v,b.s); b.s=Math.max(v,b.s); } else { PG.bp[k]={s:v,d:null}; document.getElementById('pgReadout').textContent='Now click the DIASTOLIC (lower) level in the same column to finish the arrow.'; } }
+    else if(t==='cx') PG.cervix[k]=pgCm(r,y,10);
+    else if(t==='desc') PG.descent[k]=pgCm(r,y,5);
+    else if(t.startsWith('liq')) PG.liquor[k]=t.slice(4);
+    else if(t.startsWith('mou')) PG.moul[k]=t.slice(4);
+    else PG.contr[k]={n:Math.max(1,Math.min(5,5-Math.floor((y-r.y0)/22))),st:t.slice(4)};
+  });
+}
+function pgHover(ev){
+  const o=pgLoc(ev), el=document.getElementById('pgReadout'); if(!o||!el) return; const {k,r,y}=o;
+  let t='Hour '+k+' · '+r.label.join(' ');
+  if(r.min!==undefined) t+=' · ≈ '+pgVal(r,y);
+  if(r.id==='cx'){ const v=pgCm(r,y,10); t+=' · level '+v+' (cervix '+v+' cm / descent '+Math.min(5,v)+'/5)'; }
+  if(r.id==='contr') t+=' · '+Math.max(1,Math.min(5,5-Math.floor((y-r.y0)/22)))+' contraction(s)';
+  el.textContent=t;
+}
+function pgSel(t){ pgTool=t; document.querySelectorAll('.pgt').forEach(b=>b.classList.toggle('on',b.dataset.t===t)); document.getElementById('pgReadout').textContent=pgHintFor(t); }
+function pgCardHTML(){
+  const tb=(t,l)=>`<button type="button" class="pgt" data-t="${t}">${l}</button>`;
+  const heads=[['pgName','Name'],['pgGravida','Gravida'],['pgPara','Para'],['pgHosp','Hospital no.'],['pgDate','Date of admission'],['pgTime','Time of admission'],['pgRupt','Ruptured membranes (hours)']];
+  return `<div class="section-card" id="pgCard"><h2>10. Partograph</h2>
+  <p class="pg-note">Plot the scenario on the chart: pick a tool, then click the correct row inside the correct hour column. Use the <b>Medication</b>, <b>Urine</b> and <b>Time &amp; temp</b> tools for the lower rows – an entry box opens when you click the row. Hover to read values.</p>
+  <div class="pg-head">${heads.map(([i,l])=>`<label>${l}<input type="text" id="${i}" dir="auto" placeholder="None if not mentioned"></label>`).join('')}</div>
+  <div id="pgTools">
+   <div class="pgg"><b>Cervix &amp; descent</b>${tb('cx','<span class="glyph x">X</span> Cervix')}${tb('desc','<span class="glyph o">O</span> Descent')}</div>
+   <div class="pgg"><b>FHR / pulse / BP</b>${tb('fhr','● FHR')}${tb('pulse','● Pulse')}${tb('bp','↕ BP arrow')}</div>
+   <div class="pgg"><b>Liquor</b>${Object.entries(LQ).map(([k,v])=>tb('liq:'+k,`<i class="sw" style="background:${v[0]}"></i>${k} ${v[2]}`)).join('')}</div>
+   <div class="pgg"><b>Moulding</b>${['0','+','++','+++'].map(m=>tb('mou:'+m,m)).join('')}</div>
+   <div class="pgg"><b>Contractions</b>${tb('con:dot','<i class="sw dot"></i> &lt;20 s')}${tb('con:hatch','<i class="sw hat"></i> 20–40 s')}${tb('con:solid','<i class="sw sol"></i> &gt;40 s')}</div>
+   <div class="pgg"><b>Medication</b>${tb('txt:drugs','💊 Drugs / IV fluids')}${tb('txt:oxy','💉 Oxytocin')}${tb('txt:drops','💧 Drops/min')}</div>
+   <div class="pgg"><b>Urine</b>${tb('txt:prot','🧪 Protein')}${tb('txt:acet','🧪 Acetone')}${tb('txt:vol','🚽 Volume')}</div>
+   <div class="pgg"><b>Time &amp; temp</b>${tb('txt:time','🕗 Time')}${tb('txt:temp','🌡 Temp')}</div>
+   <div class="pgg"><b>Edit</b>${tb('erase','⌫ Eraser')}<button type="button" onclick="pgUndo()">↶ Undo</button><button type="button" onclick="pgAutoTime()">⏱ Auto hours</button><button type="button" onclick="pgClear()">✖ Clear</button></div>
+  </div>
+  <div id="pgReadout"></div><div id="pgWrap"></div>
+  <div class="qa-row" style="margin-top:14px"><label class="qa-label">Interpretation of the partograph (cervical progress vs alert/action line, fetal condition, liquor, contractions)</label>
+  <div class="qa-input"><textarea id="pgInterp" dir="auto" placeholder="Write your interpretation in English"></textarea></div></div></div>`;
+}
+function initPG(){
+  document.querySelectorAll('.pgt').forEach(b=>b.onclick=()=>pgSel(b.dataset.t));
+  const w=document.getElementById('pgWrap'); w.onclick=pgClick; w.onmousemove=pgHover;
+  pgSel('cx'); drawPG();
+}
+const pgv=id=>(document.getElementById(id)||{}).value||'';
+function pgCollect(){ return {s:JSON.parse(JSON.stringify(PG)), h:{name:pgv('pgName'),gravida:pgv('pgGravida'),para:pgv('pgPara'),hosp:pgv('pgHosp'),date:pgv('pgDate'),time:pgv('pgTime'),rupt:pgv('pgRupt')}, i:pgv('pgInterp')}; }
+const pgCount=()=>Object.values(PG).reduce((a,o)=>a+Object.keys(o).length,0);
+function pgPNG(){ return new Promise(res=>{ try{
+  const cl=document.getElementById('pgSvg').cloneNode(true); cl.removeAttribute('style'); cl.setAttribute('width',PGW); cl.setAttribute('height',PGH);
+  const im=new Image(); im.onload=()=>{ const c=document.createElement('canvas'); c.width=PGW*1.6; c.height=PGH*1.6; const g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height); g.drawImage(im,0,0,c.width,c.height); res(c.toDataURL('image/jpeg',.85)); };
+  im.onerror=()=>res(null); im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(cl));
+ }catch(e){ res(null); } }); }
+function pdfPG(doc,rec){
+  doc.addPage(); let y=14; doc.setFontSize(13); doc.text('Partograph',14,y); y+=3;
+  if(rec.pgImg){ const h=262, w=h*PGW/PGH; doc.addImage(rec.pgImg,'JPEG',(210-w)/2,y,w,h); doc.addPage(); y=14; }
+  const P=rec.pg; if(!P) return; const S=P.s, H=P.h||{};
+  doc.setFontSize(9); doc.text(`Name: ${H.name||'-'} | Gravida ${H.gravida||'-'} | Para ${H.para||'-'} | Hosp. no. ${H.hosp||'-'} | Admission ${H.date||'-'} ${H.time||''} | Ruptured membranes: ${H.rupt||'-'} h`,14,y+4,{maxWidth:182});
+  const rows=[]; for(let c=1;c<=12;c++){ const b=S.bp[c], q=S.contr[c];
+    rows.push([c,S.time[c]||'',S.cervix[c]??'',S.descent[c]!==undefined?S.descent[c]+'/5':'',S.fhr[c]??'',S.liquor[c]||'',S.moul[c]||'',q?q.n+' ('+q.st+')':'',S.pulse[c]??'',b?b.s+'/'+(b.d??'?'):'',S.temp[c]||'',(S.prot[c]||'')+'/'+(S.acet[c]||'')+(S.vol[c]?' '+S.vol[c]:''),[S.oxy[c],S.drops[c],S.drugs[c]].filter(Boolean).join('; ')]); }
+  doc.autoTable({startY:y+10,head:[['Hr','Time','Cx','Desc','FHR','Liq','Mould','Contr','Pulse','BP','Temp','Prot/Acet','Oxy/Drugs']],body:rows,styles:{fontSize:7,cellPadding:1.5},headStyles:{fillColor:[46,125,107]}});
+  y=doc.lastAutoTable.finalY+6; doc.setFontSize(9); doc.text('Interpretation: '+(P.i||'-'),14,y,{maxWidth:182});
+}
+
+
+/* ---------------- PDF EXPORT ---------------- */
+function buildPDF(record){
+  if(!(window.jspdf&&window.jspdf.jsPDF)) return null;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  if(typeof doc.autoTable!=='function') return null;
+  let y = 15;
+  doc.setFontSize(16); doc.text('Labor Sheet & Partograph - Evaluation', 14, y); y+=8;
+  doc.setFontSize(10);
+  doc.text(`Student name: ${record.name}`, 14, y); y+=6;
+  doc.text(`Group: ${record.group}`, 14, y); y+=6;
+  doc.text(`Date: ${record.date}`, 14, y); y+=6;
+  doc.text(`Final Score: ${record.score}% (${record.earned}/${record.total} marks)`, 14, y); y+=6;
+  if(record.summary){ doc.text(record.summary, 14, y); y+=6; }
+  y+=4;
+
+  let currentSection = '';
+  const bodyRows = [];
+  record.qaPairs.forEach(q=>{
+    bodyRows.push([q.section===currentSection?'':q.section, q.label, q.value]);
+    currentSection = q.section;
+  });
+  doc.autoTable({ startY:y, head:[['Section','Question','Answer']], body: bodyRows,
+    styles:{fontSize:8, cellPadding:2}, headStyles:{fillColor:[46,125,107]},
+    columnStyles:{0:{cellWidth:38},1:{cellWidth:70}} });
+  y = doc.lastAutoTable.finalY + 10;
+
+  if(y > 260){ doc.addPage(); y = 15; }
+  doc.setFontSize(13); doc.text('Nursing Care Plan', 14, y); y+=4;
+  const cpRows = record.carePlan.length ? record.carePlan.map(r=>[r.diag,r.goal,r.interv]) : [['-','-','-']];
+  doc.autoTable({ startY:y, head:[['Nursing Diagnosis','Goal','Interventions']], body:cpRows,
+    styles:{fontSize:8, cellPadding:2}, headStyles:{fillColor:[224,142,69]} });
+  y = doc.lastAutoTable.finalY + 10;
+
+  if(y > 260){ doc.addPage(); y = 15; }
+  doc.setFontSize(13); doc.text('Health Education', 14, y); y+=4;
+  const heRows = record.healthEd.map(h=>[h.label, h.value]);
+  doc.autoTable({ startY:y, head:[['Category','Plan']], body:heRows,
+    styles:{fontSize:8, cellPadding:2}, headStyles:{fillColor:[63,124,172]} });
+
+  if(record.pg) pdfPG(doc,record);
+  const pages=doc.getNumberOfPages(); doc.setFontSize(8);
+  for(let pg=1;pg<=pages;pg++){ doc.setPage(pg); doc.text(record.name+' - Group '+record.group,14,290); doc.text('Page '+pg+' of '+pages,196,290,{align:'right'}); }
+  return doc;
+}
+
+function exportPDF(){
+  if(!finished){ toast('Please finish and submit the sheet before exporting to PDF.'); return; }
+  const record = {
+    name: window.studentInfo.name, group: window.studentInfo.group, date: window.studentInfo.date,
+    score: window.lastScore.pct, earned: window.lastScore.earnedPoints, total: window.lastScore.totalPossiblePoints, summary: window.lastScore.summary,
+    qaPairs: window.lastData.qaPairs, carePlan: window.lastData.carePlan, healthEd: window.lastData.healthEd, pg: window.lastData.pg, pgImg: window.lastPgImg
+  };
+  const doc = buildPDF(record);
+  if(!doc){ toast('PDF library could not load – check your internet connection and try again.'); return; }
+  doc.save(`Labor_Sheet_${record.name.replace(/\s+/g,'_')}_${record.group}.pdf`);
+}
+
+/* ---------------- ONE-ATTEMPT SERVER LOCK (Google Apps Script) ---------------- */
+async function srv(params){
+  const ctl=new AbortController(), to=setTimeout(()=>ctl.abort(),12000);
+  try{ const r=await fetch(SCRIPT_URL+'?'+new URLSearchParams({...params,sheet:SHEET_NAME,sheetName:SHEET_NAME}),{signal:ctl.signal}); return await r.json(); }
+  catch(e){ return null; } finally{ clearTimeout(to); }
+}
+async function loadSrvEntries(){
+  const box=document.getElementById('srvEntries'); if(!box) return;
+  const r=await srv({action:'list',token:window._facTok});
+  if(!r||!r.entries){ box.textContent='Server lock not reachable (deploy the updated Apps Script to enable it).'; return; }
+  window._srvList=r.entries;
+  box.innerHTML='<b>Server entry log (all devices)</b><table class="records"><thead><tr><th>Name</th><th>Group</th><th>Time</th><th>Action</th></tr></thead><tbody>'
+    +(r.entries.map((e,ix)=>`<tr><td>${esc(e.name)}</td><td>${esc(e.group)}</td><td>${esc(e.time)}</td><td><button class="small-btn" onclick="releaseSrv(${ix})">Allow re-entry</button></td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center">No entries yet.</td></tr>')+'</tbody></table>';
+}
+async function releaseSrv(ix){
+  const e=(window._srvList||[])[ix]; if(!e||!confirm('Allow '+e.name+' (Group '+e.group+') to enter again?')) return;
+  const r=await srv({action:'release',key:e.key,token:window._facTok});
+  if(r&&r.ok){ setEntries(getEntries().filter(x=>x.key!==e.key)); loadSrvEntries(); } else alert('Release failed.');
+}
+
+/* ---------------- FACULTY PANEL ---------------- */
+const FACULTY_HASH = '27041f5856c7387a997252694afb048d1aa939228ffcdbd6285b979b8da20e7a'; // SHA-256 of the faculty password
+async function facultyLogin(){
+  const pwd = prompt('Enter faculty password:');
+  if(pwd===null) return;
+  try{ if(await sha256(pwd) !== FACULTY_HASH){ alert('Incorrect password.'); return; } }
+  catch(e){ alert('Secure hashing is unavailable here. Please open the page over HTTPS.'); return; }
+  window._facTok=await sha256('release:'+pwd);
+  openFacultyPanel();
+}
+function openFacultyPanel(){
+  const records = JSON.parse(localStorage.getItem('labor_records')||'[]');
+  const scores=records.map(r=>r.score);
+  const stats=records.length? records.length+' submission(s) | Average '+Math.round(scores.reduce((a,b)=>a+b,0)/scores.length)+'% | Highest '+Math.max(...scores)+'% | Lowest '+Math.min(...scores)+'%' : '';
+  let rows = records.map((r,i)=>`<tr>
+    <td>${esc(r.name)}</td><td>${esc(r.group)}</td><td>${r.score}% (${r.earned}/${r.total})${(r.review&&r.review.length)?'<br><small style="color:#c0392b">⚠ '+r.review.map(esc).join(' | ')+'</small>':''}</td><td>${esc(r.date)}</td>
+    <td><button class="small-btn" onclick="viewRecordPDF(${i})">View PDF</button></td></tr>`).join('');
+  if(!rows) rows = `<tr><td colspan="5" style="text-align:center;color:var(--muted);">No submitted sheets yet.</td></tr>`;
+  const html = `<h2>👩‍🏫 Faculty Panel – Student Results</h2><p style="color:var(--muted);font-size:.85rem">${stats}</p>
+    <table class="records"><thead><tr><th>Name</th><th>Group</th><th>Score</th><th>Date</th><th>Action</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    ${entriesHTML()}<div id="srvEntries" style="margin:14px 0 4px;font-size:.85rem;color:var(--muted)">Loading server entries…</div><button class="small-btn" style="margin-top:14px;background:var(--accent);" onclick="exportExcel()">⬇ Export All to Excel</button> <button class="small-btn" style="margin-top:14px;background:var(--danger);" onclick="clearRecords()">Clear local records</button>`;
+  showModal(html); loadSrvEntries();
+}
+function viewRecordPDF(index){
+  const records = JSON.parse(localStorage.getItem('labor_records')||'[]');
+  const r = records[index];
+  const doc = buildPDF(r);
+  if(!doc){ toast('PDF library could not load – check your internet connection.'); return; }
+  doc.save(`Labor_Sheet_${r.name.replace(/\s+/g,'_')}_${r.group}.pdf`);
+}
+function exportExcel(){
+  const records = JSON.parse(localStorage.getItem('labor_records')||'[]');
+  if(!records.length){ alert('No records to export yet.'); return; }
+  const data = records.map(r=>({ 'Student Name': r.name, 'Group': r.group, 'Score (%)': r.score,
+    'Points Earned': r.earned, 'Total Points': r.total, 'Date': r.date, 'Time Spent (min)': r.timeSpentMin||'', 'Breakdown': r.summary||'', 'Review flags': (r.review||[]).join(' | ') }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Students');
+  XLSX.writeFile(wb, 'Labor_Sheet_Results.xlsx');
+}
+</script>
+</body>
+</html>
